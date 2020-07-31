@@ -128,7 +128,10 @@ void ReadSettings()
     // let's use xaudio2 until this is sorted (rama)
 
     //	CfgReadStr(L"OUTPUT", L"Output_Module", omodid, 127, PortaudioOut->GetIdent());
-    CfgReadStr(L"OUTPUT", L"Output_Module", omodid, 127, XAudio2Out->GetIdent());
+    if (IsWindows8OrGreater())
+        CfgReadStr(L"OUTPUT", L"Output_Module", omodid, 127, XAudio2Out->GetIdent());
+    else
+        CfgReadStr(L"OUTPUT", L"Output_Module", omodid, 127, XAudio2_27_Out->GetIdent());
 
     // find the driver index of this module:
     OutputModule = FindOutputModuleById(omodid);
@@ -212,6 +215,7 @@ void CheckOutputModule(HWND window)
 
     const bool AudioExpansion =
         mods[OutputModule] == XAudio2Out ||
+        mods[OutputModule] == XAudio2_27_Out ||
         mods[OutputModule] == PortaudioOut;
 
     EnableWindow(GetDlgItem(window, IDC_OUTCONF), IsConfigurable);

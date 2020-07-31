@@ -18,8 +18,9 @@
 #include "Global.h"
 #include "Dialogs.h"
 
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0602
+#if _WIN32_WINNT >= 0x602
+#error Time to remove this module.
+#endif
 #include <xaudio2.h>
 
 #include "SndOut_XAudio2.inl"
