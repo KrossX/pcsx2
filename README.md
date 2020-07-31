@@ -1,5 +1,5 @@
 # Fork Status
-[![Travis Build Status](https://travis-ci.org/krossx/pcsx2.svg?branch=master)](https://travis-ci.org/krossx/pcsx2) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/krossx/pcsx2/branch/master?svg=true)](https://ci.appveyor.com/project/krossx/pcsx2/branch/master)
+[![Travis Build Status](https://travis-ci.org/krossx/pcsx2.svg?branch=master)](https://travis-ci.org/krossx/pcsx2) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/krossx/pcsx2?branch=master&svg=true)](https://ci.appveyor.com/project/krossx/pcsx2/branch/master)
 
 # PCSX2
 [![Travis Build Status](https://travis-ci.org/PCSX2/pcsx2.svg?branch=master)](https://travis-ci.org/PCSX2/pcsx2) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/b67odm0dd506co78/branch/master?svg=true)](https://ci.appveyor.com/project/gregory38/pcsx2/branch/master) [![Coverity Scan Build Status](https://scan.coverity.com/projects/6310/badge.svg)](https://scan.coverity.com/projects/6310)
