@@ -62,6 +62,38 @@
   <PropertyGroup>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStrict|Win32'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x86;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugStrict|x64'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>$(SolutionDir)3rdparty\xaudio2redist\include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)3rdparty\xaudio2redist\release\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <PreprocessorDefinitions Condition="'$(Configuration)'=='Debug'">DEBUG_FAST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -73,11 +105,35 @@
       <CompileAs>Default</CompileAs>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>rpcrt4.lib;winmm.lib;dsound.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>xaudio2_9redist.lib;rpcrt4.lib;winmm.lib;dsound.lib;comctl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile>.\Spu2-X.def</ModuleDefinitionFile>
       <TargetMachine Condition="'$(Platform)'=='Win32'">MachineX86</TargetMachine>
       <TargetMachine Condition="'$(Platform)'=='x64'">MachineX64</TargetMachine>
     </Link>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStrict|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStrict|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\Config.h" />
