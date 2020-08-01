@@ -205,8 +205,10 @@ void GSdxApp::Init()
 	m_section = "Settings";
 
 #ifdef _WIN32
+	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::DX9_HW), "Direct3D 9", "Hardware"));
 	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::DX1011_HW), "Direct3D 11", "Hardware"));
 	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::OGL_HW), "OpenGL", "Hardware"));
+	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::DX9_SW), "Direct3D 9", "Software"));
 	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::DX1011_SW), "Direct3D 11", "Software"));
 	m_gs_renderers.push_back(GSSetting(static_cast<uint32>(GSRendererType::OGL_SW), "OpenGL", "Software"));
 #else // Linux
@@ -322,6 +324,11 @@ void GSdxApp::Init()
 	m_default_configuration["dx_break_on_severity"]                       = "0";
 	// D3D Blending option
 	m_default_configuration["accurate_blending_unit_d3d11"]               = "1";
+	// D3D9
+	m_default_configuration["fba"]                                        = "1";
+	m_default_configuration["logz"]                                       = "0";
+	m_default_configuration["ModeRefreshRate"]                            = "0";
+	m_default_configuration["windowed"]                                   = "1";
 #else
 	m_default_configuration["linux_replay"]                               = "1";
 #endif

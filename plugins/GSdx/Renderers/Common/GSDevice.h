@@ -271,6 +271,7 @@ struct GSAdapter
 
 #ifdef _WIN32
 	GSAdapter(const DXGI_ADAPTER_DESC1 &desc_dxgi);
+	GSAdapter(const D3DADAPTER_IDENTIFIER9 &desc_d3d9);
 #endif
 #ifdef __linux__
 	// TODO

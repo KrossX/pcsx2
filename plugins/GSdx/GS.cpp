@@ -32,6 +32,8 @@
 
 #ifdef _WIN32
 
+#include "Renderers/DX9/GSRendererDX9.h"
+#include "Renderers/DX9/GSDevice9.h"
 #include "Renderers/DX11/GSRendererDX11.h"
 #include "Renderers/DX11/GSDevice11.h"
 #include "Window/GSWndDX.h"
@@ -318,6 +320,7 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 
 		switch (renderer)
 		{
+		case GSRendererType::DX9_SW:
 		case GSRendererType::DX1011_SW:
 		case GSRendererType::OGL_SW:
 			renderer_mode = "(Software renderer)";
@@ -340,6 +343,13 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 		{
 		default:
 #ifdef _WIN32
+		case GSRendererType::DX9_HW:
+		case GSRendererType::DX9_SW:
+			dev = new GSDevice9();
+			s_renderer_name = " D3D9";
+			renderer_fullname = "Direct3D 9";
+			break;
+
 		case GSRendererType::DX1011_HW:
 		case GSRendererType::DX1011_SW:
 #ifdef ENABLE_OPENCL
@@ -379,6 +389,10 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 			{
 			default:
 #ifdef _WIN32
+			case GSRendererType::DX9_HW:
+				s_gs = (GSRenderer*)new GSRendererDX9();
+				s_renderer_type = " HW";
+				break;
 			case GSRendererType::DX1011_HW:
 				s_gs = (GSRenderer*)new GSRendererDX11();
 				s_renderer_type = " HW";
@@ -388,6 +402,7 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 				s_gs = (GSRenderer*)new GSRendererOGL();
 				s_renderer_type = " HW";
 				break;
+			case GSRendererType::DX9_SW:
 			case GSRendererType::DX1011_SW:
 			case GSRendererType::OGL_SW:
 				s_gs = new GSRendererSW(threads);
@@ -472,6 +487,8 @@ EXPORT_C_(int) GSopen2(void** dsp, uint32 flags)
 #ifdef _WIN32
 		switch (renderer) {
 			// Use alternative renderer (SW if currently using HW renderer, and vice versa, keeping the same API and API version)
+			case GSRendererType::DX9_SW: renderer = GSRendererType::DX9_HW; break;
+			case GSRendererType::DX9_HW: renderer = GSRendererType::DX9_SW; break;
 			case GSRendererType::DX1011_SW: renderer = GSRendererType::DX1011_HW; break;
 			case GSRendererType::DX1011_HW: renderer = GSRendererType::DX1011_SW; break;
 			case GSRendererType::OGL_SW: renderer = GSRendererType::OGL_HW; break;
@@ -523,7 +540,7 @@ EXPORT_C_(int) GSopen(void** dsp, const char* title, int mt)
 
 #ifdef _WIN32
 
-		renderer = GSRendererType::DX1011_SW;
+		renderer = GSUtil::CheckDirect3D11Level() >= D3D_FEATURE_LEVEL_10_0 ? GSRendererType::DX1011_SW : GSRendererType::DX9_SW;
 
 #endif
 
