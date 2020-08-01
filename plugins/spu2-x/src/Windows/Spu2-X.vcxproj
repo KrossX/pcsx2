@@ -123,16 +123,16 @@
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x64\*.dll" "$(TargetDir)..\" /y</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStrict|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='DebugStrict|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x64\*.dll" "$(TargetDir)..\" /y</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x64\*.dll" "$(TargetDir)..\" /y</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x86\*.dll" "$(TargetDir)..\" /y</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\x64\*.dll" "$(TargetDir)..\" /y</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
