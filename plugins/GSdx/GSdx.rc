@@ -78,7 +78,21 @@ IDR_FXAA_FX             RCDATA                  "res\\fxaa.fx"
 
 IDR_SHADEBOOST_FX       RCDATA                  "res\\shadeboost.fx"
 
-IDR_TFX_CL              RCDATA                  "res\\tfx.cl"
+IDR_TFX_CL              RCDATA                  "res\\d3d9\\tfx.cl"
+
+IDR_TFX_FX9             RCDATA                  "res\\d3d9\\tfx.fx"
+
+IDR_CONVERT_FX9         RCDATA                  "res\\d3d9\\convert.fx"
+
+IDR_INTERLACE_FX9       RCDATA                  "res\\d3d9\\interlace.fx"
+
+IDR_MERGE_FX9           RCDATA                  "res\\d3d9\\merge.fx"
+
+IDR_FXAA_FX9            RCDATA                  "res\\d3d9\\fxaa.fx"
+
+IDR_SHADEBOOST_FX9      RCDATA                  "res\\d3d9\\shadeboost.fx"
+
+IDR_TFX_CL9             RCDATA                  "res\\d3d9\\tfx.cl"
 
 IDR_CONVERT_GLSL        RCDATA                  "res\\glsl\\convert.glsl";
 
@@ -98,6 +112,8 @@ IDR_TFX_FS_GLSL         RCDATA                  "res\\glsl\\tfx_fs.glsl";
 //
 // Bitmap
 //
+
+IDB_LOGO9               BITMAP                  "res\\logo9.bmp"
 
 IDB_LOGO11              BITMAP                  "res\\logo11.bmp"
 
@@ -258,6 +274,7 @@ CAPTION "GSdx Settings"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     // General Settings:
+	CONTROL         IDB_LOGO9,IDC_LOGO9,"Static",SS_BITMAP | SS_REALSIZECONTROL,6,6,230,44
     CONTROL         IDB_LOGO11,IDC_LOGO11,"Static",SS_BITMAP | SS_REALSIZECONTROL,6,6,230,44
     CONTROL         IDB_LOGOGL,IDC_LOGOGL,"Static",SS_BITMAP | SS_REALSIZECONTROL,6,6,230,44
     CONTROL         IDB_NULL,IDC_NULL,"Static",SS_BITMAP | SS_REALSIZECONTROL,6,6,230,44
