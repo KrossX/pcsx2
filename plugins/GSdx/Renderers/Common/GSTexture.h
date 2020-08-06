@@ -33,6 +33,7 @@ protected:
 	int m_type;
 	int m_format;
 	bool m_sparse;
+	bool m_msaa;
 
 public:
 	struct GSMap {uint8* bits; int pitch;};
@@ -61,6 +62,7 @@ public:
 
 	int GetType() const {return m_type;}
 	int GetFormat() const {return m_format;}
+	bool IsMSAA() const {return m_msaa;}
 
 	virtual void CommitPages(const GSVector2i& region, bool commit) {};
 	void CommitRegion(const GSVector2i& region);

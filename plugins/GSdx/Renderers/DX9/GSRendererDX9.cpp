@@ -722,7 +722,7 @@ void GSRendererDX9::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		}
 		else
 		{
-			rtcopy = dev->CreateRenderTarget(rtsize.x, rtsize.y, false, rt->GetFormat());
+			rtcopy = dev->CreateRenderTarget(rtsize.x, rtsize.y, rt->GetFormat());
 
 			// I'll use VertexTrace when I consider it more trustworthy
 

@@ -49,6 +49,7 @@ GSTexture9::GSTexture9(IDirect3DSurface9* surface)
 	else if(m_desc.Pool == D3DPOOL_SYSTEMMEM) m_type = Offscreen;
 
 	m_format = (int)m_desc.Format;
+	m_msaa = m_desc.MultiSampleType != D3DMULTISAMPLE_NONE;
 }
 
 GSTexture9::GSTexture9(IDirect3DTexture9* texture)
@@ -69,7 +70,7 @@ GSTexture9::GSTexture9(IDirect3DTexture9* texture)
 	else if(m_desc.Pool == D3DPOOL_SYSTEMMEM) m_type = Offscreen;
 
 	m_format = (int)m_desc.Format;
-
+	m_msaa = m_desc.MultiSampleType > 1;
 	m_max_layer = m_texture->GetLevelCount();
 }
 

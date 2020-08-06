@@ -21,8 +21,9 @@
 
 #pragma once
 
-#include "Renderers/Common/GSDevice.h"
 #include "GSTexture9.h"
+#include "GSVector.h"
+#include "Renderers/Common/GSDevice.h"
 
 struct Direct3DSamplerState9
 {
@@ -373,9 +374,8 @@ public:
 	};
 
 private:
-
-	GSTexture* CreateSurface(int type, int w, int h, int format);
-	GSTexture* FetchSurface(int type, int w, int h, int format);
+	GSTexture* CreateSurface(int type, int w, int h, int format, bool msaa = false);
+	GSTexture* FetchSurface(int type, int w, int h, int format, bool msaa = false);
 
 	void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, const GSVector4& c);
 	void DoInterlace(GSTexture* sTex, GSTexture* dTex, int shader, bool linear, float yoffset = 0);
@@ -405,6 +405,9 @@ private:
 	struct {D3D_FEATURE_LEVEL level; std::string model, vs, gs, ps, cs;} m_shader;
 	int m_upscale_multiplier;
 	int m_mipmap;
+
+	uint32 m_msaa;
+	DXGI_SAMPLE_DESC m_msaa_desc;
 
 	struct
 	{
@@ -514,8 +517,8 @@ public:
 	void ClearDepth(GSTexture* t);
 	void ClearStencil(GSTexture* t, uint8 c);
 
-	GSTexture* CreateRenderTarget(int w, int h, bool msaa, int format = 0);
-	GSTexture* CreateDepthStencil(int w, int h, bool msaa, int format = 0);
+	GSTexture* CreateRenderTarget(int w, int h, int format = 0, bool msaa = false);
+	GSTexture* CreateDepthStencil(int w, int h, int format = 0, bool msaa = false);
 	GSTexture* CreateTexture(int w, int h, int format = 0);
 	GSTexture* CreateOffscreen(int w, int h, int format = 0);
 
@@ -560,6 +563,7 @@ public:
 	bool HasStencil() { return m_depth_format == D3DFMT_D24S8; }
 	bool HasDepth32() { return m_depth_format != D3DFMT_D24S8; }
 
-	static uint32 GetMaxDepth(std::string adapter_id = "");
+	static uint32 GetMaxDepth(uint32 msaaCount = 0, std::string adapter_id = "");
+	static void ForceValidMsaaConfig();
 };
 

@@ -33,6 +33,10 @@ GSDevice9::GSDevice9()
 	ExShader_Compiled = false;
 
 	m_mipmap = theApp.GetConfigI("mipmap");
+	m_msaa = theApp.GetConfigB("UserHacks") ? theApp.GetConfigI("UserHacks_MSAA") : 0;
+
+	m_msaa_desc.Count = 1;
+	m_msaa_desc.Quality = 0;
 
 	memset(&m_pp, 0, sizeof(m_pp));
 	memset(&m_d3dcaps, 0, sizeof(m_d3dcaps));
@@ -109,6 +113,35 @@ static void FindAdapter(IDirect3D9 *d3d9, UINT &adapter, D3DDEVTYPE &devtype, st
 	}
 }
 
+// if supported and null != msaa_desc, msaa_desc will contain requested Count and Quality
+
+static bool IsMsaaSupported(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype, D3DFORMAT depth_format, uint32 msaaCount, DXGI_SAMPLE_DESC* msaa_desc = NULL)
+{
+	if(msaaCount > 16) return false;
+
+	D3DCAPS9 d3dcaps;
+
+	memset(&d3dcaps, 0, sizeof(d3dcaps));
+
+	d3d->GetDeviceCaps(adapter, devtype, &d3dcaps);
+
+	DWORD quality[2] = {0, 0};
+
+	if(SUCCEEDED(d3d->CheckDeviceMultiSampleType(d3dcaps.AdapterOrdinal, d3dcaps.DeviceType, D3DFMT_A8R8G8B8, TRUE, (D3DMULTISAMPLE_TYPE)msaaCount, &quality[0])) && quality[0] > 0
+	&& SUCCEEDED(d3d->CheckDeviceMultiSampleType(d3dcaps.AdapterOrdinal, d3dcaps.DeviceType, depth_format, TRUE, (D3DMULTISAMPLE_TYPE)msaaCount, &quality[1])) && quality[1] > 0)
+	{
+		if(msaa_desc)
+		{
+			msaa_desc->Count = msaaCount;
+			msaa_desc->Quality = std::min<DWORD>(quality[0] - 1, quality[1] - 1);
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 static bool TestDepthFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype, D3DFORMAT format)
 {
 	if(FAILED(d3d->CheckDeviceFormat(adapter, devtype, D3DFMT_X8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_SURFACE, format)))
@@ -124,7 +157,7 @@ static bool TestDepthFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype, D
 	return true;
 }
 
-static D3DFORMAT BestD3dFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype)
+static D3DFORMAT BestD3dFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype, int msaaCount = 0, DXGI_SAMPLE_DESC* msaa_desc = NULL)
 {
 	// In descending order of preference
 
@@ -135,9 +168,11 @@ static D3DFORMAT BestD3dFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype
 		D3DFMT_D24S8
 	};
 
+	if(1 == msaaCount) msaaCount = 0;
+
 	for(size_t i = 0; i < countof(fmts); i++)
 	{
-		if(TestDepthFormat(d3d, adapter, devtype, fmts[i]))
+		if(TestDepthFormat(d3d, adapter, devtype, fmts[i]) && (!msaaCount || IsMsaaSupported(d3d, adapter, devtype, fmts[i], msaaCount, msaa_desc)))
 		{
 			return fmts[i];
 		}
@@ -148,7 +183,7 @@ static D3DFORMAT BestD3dFormat(IDirect3D9* d3d, UINT adapter, D3DDEVTYPE devtype
 
 // return: 32, 24, or 0 if not supported. if 1==msaa, considered as msaa=0
 
-uint32 GSDevice9::GetMaxDepth(std::string adapter_id)
+uint32 GSDevice9::GetMaxDepth(uint32 msaaCount, std::string adapter_id)
 {
 	CComPtr<IDirect3D9> d3d;
 
@@ -159,7 +194,7 @@ uint32 GSDevice9::GetMaxDepth(std::string adapter_id)
 
 	FindAdapter(d3d, adapter, devtype, adapter_id);
 
-	switch(BestD3dFormat(d3d, adapter, devtype))
+	switch(BestD3dFormat(d3d, adapter, devtype, msaaCount))
 	{
 		case D3DFMT_D32:
 		case D3DFMT_D32F_LOCKABLE:
@@ -170,6 +205,14 @@ uint32 GSDevice9::GetMaxDepth(std::string adapter_id)
 
 	return 0;
 }
+
+void GSDevice9::ForceValidMsaaConfig()
+{
+	if(0 == GetMaxDepth(theApp.GetConfigI("UserHacks_MSAA")))
+	{
+		theApp.SetConfig("UserHacks_MSAA", 0); // replace invalid msaa value in ini file with 0.
+	}
+};
 
 bool GSDevice9::Create(const std::shared_ptr<GSWnd> &wnd)
 {
@@ -201,13 +244,26 @@ bool GSDevice9::Create(const std::shared_ptr<GSWnd> &wnd)
 			id.DriverVersion.LowPart & 0xffff);
 	}
 
+	ForceValidMsaaConfig();
+
 	// Get best format/depth for msaa. Assumption is that if the resulting depth is 24 instead of possible 32,
 	// the user was already warned when she selected it. (Lower res z buffer without warning is unacceptable).
 
-	m_depth_format = BestD3dFormat(m_d3d, adapter, devtype);
+	m_depth_format = BestD3dFormat(m_d3d, adapter, devtype, m_msaa, &m_msaa_desc);
 
 	if(D3DFMT_UNKNOWN == m_depth_format)
-		return false;
+	{
+		// can't find a format with requested msaa, try without.
+
+		m_depth_format = BestD3dFormat(m_d3d, adapter, devtype, 0);
+
+		if(D3DFMT_UNKNOWN == m_depth_format)
+		{
+			return false;
+		}
+
+		m_msaa = 0;
+	}
 
 	memset(&m_d3dcaps, 0, sizeof(m_d3dcaps));
 
@@ -652,7 +708,7 @@ void GSDevice9::ClearStencil(GSTexture* t, uint8 c)
 	m_dev->SetDepthStencilSurface(dssurface);
 }
 
-GSTexture* GSDevice9::CreateSurface(int type, int w, int h, int format)
+GSTexture* GSDevice9::CreateSurface(int type, int w, int h, int format, bool msaa)
 {
 	HRESULT hr;
 
@@ -666,10 +722,12 @@ GSTexture* GSDevice9::CreateSurface(int type, int w, int h, int format)
 	switch(type)
 	{
 	case GSTexture::RenderTarget:
-		hr = m_dev->CreateTexture(w, h, 1, D3DUSAGE_RENDERTARGET, (D3DFORMAT)format, D3DPOOL_DEFAULT, &texture, NULL);
+		if(msaa) hr = m_dev->CreateRenderTarget(w, h, (D3DFORMAT)format, (D3DMULTISAMPLE_TYPE)m_msaa_desc.Count, m_msaa_desc.Quality, FALSE, &surface, NULL);
+		else hr = m_dev->CreateTexture(w, h, 1, D3DUSAGE_RENDERTARGET, (D3DFORMAT)format, D3DPOOL_DEFAULT, &texture, NULL);
 		break;
 	case GSTexture::DepthStencil:
-		hr = m_dev->CreateDepthStencilSurface(w, h, (D3DFORMAT)format, D3DMULTISAMPLE_NONE, 0, FALSE, &surface, NULL);
+		if(msaa) hr = m_dev->CreateDepthStencilSurface(w, h, (D3DFORMAT)format, (D3DMULTISAMPLE_TYPE)m_msaa_desc.Count, m_msaa_desc.Quality, FALSE, &surface, NULL);
+		else hr = m_dev->CreateDepthStencilSurface(w, h, (D3DFORMAT)format, D3DMULTISAMPLE_NONE, 0, FALSE, &surface, NULL);
 		break;
 	case GSTexture::Texture:
 		hr = m_dev->CreateTexture(w, h, layers, 0, (D3DFORMAT)format, D3DPOOL_MANAGED, &texture, NULL);
@@ -711,22 +769,25 @@ GSTexture* GSDevice9::CreateSurface(int type, int w, int h, int format)
 	return t;
 }
 
-GSTexture* GSDevice9::FetchSurface(int type, int w, int h, int format)
+GSTexture* GSDevice9::FetchSurface(int type, int w, int h, int format, bool msaa)
 {
+	if(m_msaa < 2)
+		msaa = false;
+
 	if (format == 0)
 		format = (type == GSTexture::DepthStencil || type == GSTexture::SparseDepthStencil) ? D3DFMT_D24S8 : D3DFMT_A8R8G8B8;
 
-	return __super::FetchSurface(type, w, h, format);
+	return __super::FetchSurface(type, w, h, format, msaa);
 }
 
-GSTexture* GSDevice9::CreateRenderTarget(int w, int h, bool msaa, int format)
+GSTexture* GSDevice9::CreateRenderTarget(int w, int h, int format, bool msaa)
 {
-	return __super::CreateRenderTarget(w, h, format ? format : D3DFMT_A8R8G8B8);
+	return __super::CreateRenderTarget(w, h, format ? format : D3DFMT_A8R8G8B8, msaa);
 }
 
-GSTexture* GSDevice9::CreateDepthStencil(int w, int h, bool msaa, int format)
+GSTexture* GSDevice9::CreateDepthStencil(int w, int h, int format, bool msaa)
 {
-	return __super::CreateDepthStencil(w, h, format ? format : m_depth_format);
+	return __super::CreateDepthStencil(w, h, format ? format : m_depth_format, msaa);
 }
 
 GSTexture* GSDevice9::CreateTexture(int w, int h, int format)
@@ -741,9 +802,9 @@ GSTexture* GSDevice9::CreateOffscreen(int w, int h, int format)
 
 GSTexture* GSDevice9::Resolve(GSTexture* t)
 {
-	ASSERT(t != NULL);
+	ASSERT(t != NULL && t->IsMSAA());
 
-	if(GSTexture* dst = CreateRenderTarget(t->GetWidth(), t->GetHeight(), false, t->GetFormat()))
+	if(GSTexture* dst = CreateRenderTarget(t->GetWidth(), t->GetHeight(), t->GetFormat(), false))
 	{
 		dst->SetScale(t->GetScale());
 
@@ -771,11 +832,16 @@ GSTexture* GSDevice9::CopyOffscreen(GSTexture* src, const GSVector4& sRect, int 
 		return false;
 	}
 
-	if(GSTexture* rt = CreateRenderTarget(w, h, false, format))
+	if(GSTexture* rt = CreateRenderTarget(w, h, format, false))
 	{
 		GSVector4 dRect(0, 0, w, h);
 
-		StretchRect(src, sRect, rt, dRect, m_convert.ps[1], NULL, 0);
+		if(GSTexture* src2 = src->IsMSAA() ? Resolve(src) : src)
+		{
+			StretchRect(src2, sRect, rt, dRect, m_convert.ps[1], NULL, 0);
+
+			if(src2 != src) Recycle(src2);
+		}
 
 		dst = CreateOffscreen(w, h, format);
 
@@ -1012,7 +1078,7 @@ void GSDevice9::SetupDATE(GSTexture* rt, GSTexture* ds, const GSVertexPT1* verti
 {
 	const GSVector2i& size = rt->GetSize();
 
-	if(GSTexture* t = CreateRenderTarget(size.x, size.y, false))
+	if(GSTexture* t = CreateRenderTarget(size.x, size.y, 0, rt->IsMSAA()))
 	{
 		// sfex3 (after the capcom logo), vf4 (first menu fading in), ffxii shadows, rumble roses shadows, persona4 shadows
 
@@ -1038,7 +1104,7 @@ void GSDevice9::SetupDATE(GSTexture* rt, GSTexture* ds, const GSVertexPT1* verti
 
 		// ps
 
-		GSTexture* rt2 = rt;
+		GSTexture* rt2 = rt->IsMSAA() ? Resolve(rt) : rt;
 
 		PSSetShaderResources(rt2, NULL);
 		PSSetShader(m_convert.ps[datm ? ShaderConvert_DATM_1 : ShaderConvert_DATM_0], NULL, 0);

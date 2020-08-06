@@ -1293,6 +1293,15 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 
 		dst->Update();
 
+		GSTexture* tmp = NULL;
+
+		if (dst->m_texture->IsMSAA())
+		{
+			tmp = dst->m_texture;
+
+			dst->m_texture = m_renderer->m_dev->Resolve(dst->m_texture);
+		}
+
 		// do not round here!!! if edge becomes a black pixel and addressing mode is clamp => everything outside the clamped area turns into black (kh2 shadows)
 
 		int w = (int)(dst->m_texture->GetScale().x * tw);
@@ -1479,6 +1488,14 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 		else
 			ASSERT(0);
 
+		if(tmp != NULL)
+		{
+			// tmp is the texture before a MultiSample resolve
+			m_renderer->m_dev->Recycle(dst->m_texture);
+
+			dst->m_texture = tmp;
+		}
+
 		// Offset hack. Can be enabled via GSdx options.
 		// The offset will be used in Draw().
 
@@ -1544,13 +1561,13 @@ GSTextureCache::Target* GSTextureCache::CreateTarget(const GIFRegTEX0& TEX0, int
 
 	if(type == RenderTarget)
 	{
-		t->m_texture = m_renderer->m_dev->CreateSparseRenderTarget(w, h);
+		t->m_texture = m_renderer->m_dev->CreateSparseRenderTarget(w, h, 0, true);
 
 		t->m_used = true; // FIXME
 	}
 	else if(type == DepthStencil)
 	{
-		t->m_texture = m_renderer->m_dev->CreateSparseDepthStencil(w, h);
+		t->m_texture = m_renderer->m_dev->CreateSparseDepthStencil(w, h, 0, true);
 	}
 
 	m_dst[type].push_front(t);

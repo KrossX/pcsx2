@@ -138,6 +138,9 @@ BEGIN
     CONTROL         "Auto Flush",IDC_AUTO_FLUSH_HW,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,19,55,8
     CONTROL         "Disable Depth Emulation",IDC_TC_DEPTH,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,32,92,8
     CONTROL         "Disable Safe Features",IDC_SAFE_FEATURES,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,14,45,85,8
+    // D3D9
+    RTEXT           "MSAA:",IDC_MSAA_TEXT,14,58,22,8
+    COMBOBOX        IDC_MSAACB,40,56,60,63,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     // Column two - HW hacks
     CONTROL         "Fast Texture Invalidation",IDC_FAST_TC_INV,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,106,19,93,8
     CONTROL         "Frame Buffer Conversion",IDC_CPU_FB_CONVERSION,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,106,32,93,8
@@ -311,6 +314,9 @@ BEGIN
     COMBOBOX        IDC_ACCURATE_BLEND_UNIT_D3D11,104,238,127,118,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     CONTROL         "Enable HW Hacks",IDC_HACKS_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,256,71,10
     PUSHBUTTON      "Advanced Settings and Hacks",IDC_HACKSBUTTON,104,253,127,14
+	// Direct3D 9 (Hardware) Settings:
+    CONTROL         "Alpha Correction",IDC_FBA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,240,74,10
+    CONTROL         "Logarithmic Z",IDC_LOGZ,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,105,240,90,10
     // Software Renderer Settings:
     GROUPBOX        "Software Renderer Settings",IDC_STATIC,6,279,230,41,BS_CENTER
     CONTROL         "Auto Flush",IDC_AUTO_FLUSH_SW,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,290,91,10
