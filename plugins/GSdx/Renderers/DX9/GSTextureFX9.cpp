@@ -143,9 +143,9 @@ void GSDevice9::SetupPS(PSSelector sel, const PSConstantBuffer* cb, PSSamplerSel
 		sm.AddMacro("PS_LTF", sel.ltf);
 		sm.AddMacro("PS_COLCLIP", sel.colclip);
 		sm.AddMacro("PS_DATE", sel.date);
-		sm.AddMacro("PS_SPRITEHACK", sel.spritehack);
 		sm.AddMacro("PS_TCOFFSETHACK", sel.tcoffsethack);
 		sm.AddMacro("PS_PAL_FMT", sel.fmt >> 2);
+		sm.AddMacro("PS_ZCLAMP", sel.zclamp);
 
 		CComPtr<IDirect3DPixelShader9> ps;
 

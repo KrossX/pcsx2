@@ -26,6 +26,7 @@
 #define PS_COLCLIP 0
 #define PS_DATE 0
 #define PS_PAL_FMT 0
+#define PS_ZCLAMP 0
 #endif
 
 struct VS_INPUT
@@ -38,21 +39,27 @@ struct VS_INPUT
 
 struct VS_OUTPUT
 {
-	float4 p : POSITION;
-	float4 t : TEXCOORD0;
-#if VS_RTCOPY
+	float4 p  : POSITION0;
+	float4 p2 : TEXCOORD2;
+	float4 t  : TEXCOORD0;
 	float4 tp : TEXCOORD1;
-#endif
-	float4 c : COLOR0;
+	float4 c  : COLOR0;
 };
 
 struct PS_INPUT
 {
-	float4 t : TEXCOORD0;
-#if PS_DATE > 0
+	float4 p  : TEXCOORD2;
+	float4 t  : TEXCOORD0;
 	float4 tp : TEXCOORD1;
+	float4 c  : COLOR0;
+};
+
+struct PS_OUTPUT
+{
+	float4 color : COLOR;
+#if PS_ZCLAMP
+	float depth : DEPTH;
 #endif
-	float4 c : COLOR0;
 };
 
 sampler Texture : register(s0);
@@ -61,23 +68,24 @@ sampler RTCopy : register(s2);
 sampler1D UMSKFIX : register(s3);
 sampler1D VMSKFIX : register(s4);
 
-float4 vs_params[3];
+float4 vs_params[4];
 
-#define VertexScale vs_params[0]
-#define VertexOffset vs_params[1]
-#define Texture_Scale_Offset vs_params[2]
+#define VertexScale				vs_params[0]
+#define VertexOffset			vs_params[1]
+#define Texture_Scale_Offset	vs_params[2]
+#define MaxDepthVS				vs_params[3].x
 
 float4 ps_params[7];
 
-#define FogColor	ps_params[0].bgr
-#define AREF		ps_params[0].a
-#define HalfTexel	ps_params[1]
-#define WH			ps_params[2]
-#define MinMax		ps_params[3]
-#define MinF		ps_params[4].xy
-#define TA			ps_params[4].zw
-
-#define TC_OffsetHack ps_params[6]
+#define FogColor		ps_params[0].bgr
+#define AREF			ps_params[0].a
+#define HalfTexel		ps_params[1]
+#define WH				ps_params[2]
+#define MinMax			ps_params[3]
+#define MinF			ps_params[4].xy
+#define TA				ps_params[4].zw
+#define OffsetHack		ps_params[6].xy
+#define MaxDepthPS		ps_params[6].z
 
 float4 sample_c(float2 uv)
 {
@@ -216,7 +224,7 @@ float4 sample_color(float2 st, float q)
 	if(!PS_FST) st /= q;
 
 	#if PS_TCOFFSETHACK
-	st += TC_OffsetHack.xy;
+	st += OffsetHack;
 	#endif
 
 	float4 t;
@@ -348,9 +356,7 @@ void atst(float4 c)
 	}
 	else if(PS_ATST == 1)
 	{
-		#if PS_SPRITEHACK == 0
 		if (a > AREF) discard;
-		#endif
 	}
 	else if(PS_ATST == 2)
 	{
@@ -423,14 +429,7 @@ float4 ps_color(PS_INPUT input)
 
 VS_OUTPUT vs_main(VS_INPUT input)
 {
-	if(VS_BPPZ == 1) // 24
-	{
-		input.p.z = fmod(input.p.z, 0x1000000);
-	}
-	else if(VS_BPPZ == 2) // 16
-	{
-		input.p.z = fmod(input.p.z, 0x10000);
-	}
+	input.p.z = min(input.p.z, MaxDepthVS);
 
 	VS_OUTPUT output;
 
@@ -442,9 +441,7 @@ VS_OUTPUT vs_main(VS_INPUT input)
 	float4 p = input.p - float4(0.05f, 0.05f, 0, 0);
 
 	output.p = p * VertexScale - VertexOffset;
-#if VS_RTCOPY
 	output.tp = (p * VertexScale - VertexOffset) * float4(0.5, -0.5, 0, 0) + 0.5;
-#endif
 
 	if(VS_LOGZ)
 	{
@@ -474,16 +471,22 @@ VS_OUTPUT vs_main(VS_INPUT input)
 
 	output.c = input.c;
 	output.t.z = input.f.b;
+	output.p2 = output.p;
 
 	return output;
 }
 
-float4 ps_main(PS_INPUT input) : COLOR
+PS_OUTPUT ps_main(PS_INPUT input)
 {
-	float4 c = ps_color(input);
+	PS_OUTPUT output;
 
-	c.a *= 2;
+	output.color = ps_color(input);
+	output.color.a *= 2;
 
-	return c;
+#if PS_ZCLAMP
+	output.depth = min(input.p.z, MaxDepthPS);
+#endif
+
+	return output;
 }
 #endif

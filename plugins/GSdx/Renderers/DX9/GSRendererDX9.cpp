@@ -353,24 +353,29 @@ void GSRendererDX9::EmulateZbuffer()
 		m_om_dssel.ztst = ZTST_ALWAYS;
 	}
 
-	uint32 max_z;
-	if (m_context->ZBUF.PSM == PSM_PSMZ32)
+	// On the real GS we appear to do clamping on the max z value the format allows.
+	// Clamping is done after rasterization.
+	const uint32 max_z = 0xFFFFFFFF >> (GSLocalMemory::m_psm[m_context->ZBUF.PSM].fmt * 8);
+	const bool clamp_z = (uint32)(GSVector4i(m_vt.m_max.p).z) > max_z;
+
+	vs_cb.MaxDepth.x = FLT_MAX;
+	ps_cb.TCOH_MZ.z  = 1.0f;
+	m_ps_sel.zclamp  = 0;
+
+	if (clamp_z)
 	{
-		max_z = 0xFFFFFFFF;
-	}
-	else if (m_context->ZBUF.PSM == PSM_PSMZ24)
-	{
-		max_z = 0xFFFFFF;
-	}
-	else
-	{
-		max_z = 0xFFFF;
+		if (m_vt.m_primclass == GS_SPRITE_CLASS || m_vt.m_primclass == GS_POINT_CLASS)
+		{
+			vs_cb.MaxDepth.x = (float)max_z;
+		}
+		else
+		{
+			ps_cb.TCOH_MZ = GSVector4((float)max_z * ldexpf(1, -32));
+			m_ps_sel.zclamp = 1;
+		}
 	}
 
-	// The real GS appears to do no masking based on the Z buffer format and writing larger Z values
-	// than the buffer supports seems to be an error condition on the real GS, causing it to crash.
-	// We are probably receiving bad coordinates from VU1 in these cases.
-
+#if 0
 	if (m_om_dssel.ztst >= ZTST_ALWAYS && m_om_dssel.zwe && (m_context->ZBUF.PSM != PSM_PSMZ32))
 	{
 		if (m_vt.m_max.p.z > max_z)
@@ -386,6 +391,7 @@ void GSRendererDX9::EmulateZbuffer()
 			}
 		}
 	}
+#endif
 
 	GSVertex* v = &m_vertex.buff[0];
 	// Minor optimization of a corner case (it allow to better emulate some alpha test effects)
@@ -562,7 +568,8 @@ void GSRendererDX9::EmulateTextureSampler(const GSTextureCache::Source* tex)
 
 	// TC Offset Hack
 	m_ps_sel.tcoffsethack = m_userhacks_tcoffset;
-	ps_cb.TC_OffsetHack = GSVector4(m_userhacks_tcoffset_x, m_userhacks_tcoffset_y).xyxy() / WH.xyxy();
+	ps_cb.TCOH_MZ.x = m_userhacks_tcoffset_x / WH.x;
+	ps_cb.TCOH_MZ.y = m_userhacks_tcoffset_y / WH.y;
 
 	// Only enable clamping in CLAMP mode. REGION_CLAMP will be done manually in the shader
 	m_ps_ssel.tau = (wms != CLAMP_CLAMP);
@@ -735,7 +742,6 @@ void GSRendererDX9::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 	dev->BeginScene();
 
 	// om
-
 	EmulateZbuffer();
 
 	if (m_cfg_fba)

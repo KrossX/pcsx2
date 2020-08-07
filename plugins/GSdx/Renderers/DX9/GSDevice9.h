@@ -81,12 +81,14 @@ public:
 		GSVector4 VertexScale;
 		GSVector4 VertexOffset;
 		GSVector4 Texture_Scale_Offset;
+		GSVector4 MaxDepth;
 
 		struct VSConstantBuffer()
 		{
 			VertexScale = GSVector4::zero();
 			VertexOffset = GSVector4::zero();
 			Texture_Scale_Offset = GSVector4::zero();
+			MaxDepth = GSVector4::zero();
 		}
 
 		__forceinline bool Update(const VSConstantBuffer* cb)
@@ -137,9 +139,7 @@ public:
 		GSVector4 MinMax;
 		GSVector4 MinF_TA;
 		GSVector4i MskFix;
-		GSVector4i ChannelShuffle;
-
-		GSVector4 TC_OffsetHack;
+		GSVector4 TCOH_MZ; // Offset Hack + Max Z
 
 		struct PSConstantBuffer()
 		{
@@ -149,7 +149,8 @@ public:
 			MinMax = GSVector4::zero();
 			MinF_TA = GSVector4::zero();
 			MskFix = GSVector4i::zero();
-			ChannelShuffle = GSVector4i::zero();
+			//ChannelShuffle = GSVector4i::zero();
+			TCOH_MZ = GSVector4::zero();
 		}
 
 		__forceinline bool Update(const PSConstantBuffer* cb)
@@ -157,7 +158,7 @@ public:
 			GSVector4i* a = (GSVector4i*)this;
 			GSVector4i* b = (GSVector4i*)cb;
 
-			if(!((a[0] == b[0]) /*& (a[1] == b1)*/ & (a[2] == b[2]) & (a[3] == b[3]) & (a[4] == b[4]) & (a[5] == b[5]) & (a[6] == b[6])).alltrue()) // if WH matches HalfTexel does too
+			if(!((a[0] == b[0]) /*& (a[1] == b1)*/ & (a[2] == b[2]) & (a[3] == b[3]) & (a[4] == b[4]) & (a[5] == b[5]) & (a[6] == b[6]) & (a[7] == b[7])).alltrue()) // if WH matches HalfTexel does too
 			{
 				a[0] = b[0];
 				a[1] = b[1];
@@ -166,6 +167,7 @@ public:
 				a[4] = b[4];
 				a[5] = b[5];
 				a[6] = b[6];
+				a[7] = b[7];
 
 				return true;
 			}
@@ -241,6 +243,7 @@ public:
 				// Shuffle and fbmask effect
 				uint32 shuffle:1;
 				uint32 read_ba:1;
+				uint32 _pad:4;
 
 				// *** Word 2
 				// Blend and Colclip
@@ -251,15 +254,17 @@ public:
 				// Others ways to fetch the texture
 				uint32 channel:3;
 
+				// Depth clamp
+				uint32 zclamp : 1;
+
 				// Hack
 				uint32 aout:1;
-				uint32 spritehack:1;
 				uint32 tcoffsethack:1;
 				uint32 urban_chaos_hle:1;
 				uint32 tales_of_abyss_hle:1;
 				uint32 point_sampler:1;
 
-				uint32 _free:23;
+				uint32 _free:20;
 			};
 
 			uint64 key;
