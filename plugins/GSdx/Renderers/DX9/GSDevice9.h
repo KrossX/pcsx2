@@ -27,12 +27,11 @@
 
 struct Direct3DSamplerState9
 {
-    D3DTEXTUREFILTERTYPE FilterMin[2];
-    D3DTEXTUREFILTERTYPE FilterMag[2];
+	D3DTEXTUREFILTERTYPE FilterMin[2];
+	D3DTEXTUREFILTERTYPE FilterMag[2];
 	D3DTEXTUREFILTERTYPE FilterMip[2];
-	D3DTEXTUREFILTERTYPE Anisotropic[2];
-    D3DTEXTUREADDRESS AddressU;
-    D3DTEXTUREADDRESS AddressV;
+	D3DTEXTUREADDRESS AddressU;
+	D3DTEXTUREADDRESS AddressV;
 	D3DTEXTUREADDRESS AddressW;
 	DWORD MaxAnisotropy;
 	DWORD MaxLOD;
@@ -40,29 +39,29 @@ struct Direct3DSamplerState9
 
 struct Direct3DDepthStencilState9
 {
-    BOOL DepthEnable;
-    BOOL DepthWriteMask;
-    D3DCMPFUNC DepthFunc;
-    BOOL StencilEnable;
-    UINT8 StencilReadMask;
-    UINT8 StencilWriteMask;
-    D3DSTENCILOP StencilFailOp;
-    D3DSTENCILOP StencilDepthFailOp;
-    D3DSTENCILOP StencilPassOp;
-    D3DCMPFUNC StencilFunc;
+	BOOL DepthEnable;
+	BOOL DepthWriteMask;
+	D3DCMPFUNC DepthFunc;
+	BOOL StencilEnable;
+	UINT8 StencilReadMask;
+	UINT8 StencilWriteMask;
+	D3DSTENCILOP StencilFailOp;
+	D3DSTENCILOP StencilDepthFailOp;
+	D3DSTENCILOP StencilPassOp;
+	D3DCMPFUNC StencilFunc;
 	uint32 StencilRef;
 };
 
 struct Direct3DBlendState9
 {
-    BOOL BlendEnable;
-    D3DBLEND SrcBlend;
-    D3DBLEND DestBlend;
-    D3DBLENDOP BlendOp;
-    D3DBLEND SrcBlendAlpha;
-    D3DBLEND DestBlendAlpha;
-    D3DBLENDOP BlendOpAlpha;
-    UINT8 RenderTargetWriteMask;
+	BOOL BlendEnable;
+	D3DBLEND SrcBlend;
+	D3DBLEND DestBlend;
+	D3DBLENDOP BlendOp;
+	D3DBLEND SrcBlendAlpha;
+	D3DBLEND DestBlendAlpha;
+	D3DBLENDOP BlendOpAlpha;
+	UINT8 RenderTargetWriteMask;
 };
 
 struct GSVertexShader9
@@ -406,6 +405,7 @@ private:
 
 	struct {D3D_FEATURE_LEVEL level; std::string model, vs, gs, ps, cs;} m_shader;
 	int m_upscale_multiplier;
+	int m_aniso;
 	int m_mipmap;
 
 	uint32 m_msaa;

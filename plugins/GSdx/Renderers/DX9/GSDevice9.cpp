@@ -32,6 +32,7 @@ GSDevice9::GSDevice9()
 	FXAA_Compiled = false;
 	ExShader_Compiled = false;
 
+	m_aniso = theApp.GetConfigB("paltex") ? 0 : theApp.GetConfigI("MaxAnisotropy");
 	m_mipmap = theApp.GetConfigI("mipmap");
 	m_msaa = theApp.GetConfigB("UserHacks") ? theApp.GetConfigI("UserHacks_MSAA") : 0;
 
@@ -336,24 +337,26 @@ bool GSDevice9::Create(const std::shared_ptr<GSWnd> &wnd)
 
 	m_convert.bs.BlendEnable = false;
 	m_convert.bs.RenderTargetWriteMask = D3DCOLORWRITEENABLE_RGBA;
-	D3DTEXTUREFILTERTYPE LinearToAnisotropic = theApp.GetConfigI("MaxAnisotropy") && !theApp.GetConfigB("paltex") ? D3DTEXF_ANISOTROPIC : D3DTEXF_LINEAR;
-	D3DTEXTUREFILTERTYPE PointToAnisotropic = theApp.GetConfigI("MaxAnisotropy") && !theApp.GetConfigB("paltex") ? D3DTEXF_ANISOTROPIC : D3DTEXF_POINT;
 
-	m_convert.ln.FilterMin[0] = LinearToAnisotropic;
-	m_convert.ln.FilterMag[0] = LinearToAnisotropic;
-	m_convert.ln.FilterMin[1] = LinearToAnisotropic;
-	m_convert.ln.FilterMag[1] = LinearToAnisotropic;
+	m_convert.ln.FilterMin[0] = D3DTEXF_LINEAR;
+	m_convert.ln.FilterMag[0] = D3DTEXF_LINEAR;
+	m_convert.ln.FilterMip[0] = D3DTEXF_NONE;
+	m_convert.ln.FilterMin[1] = D3DTEXF_LINEAR;
+	m_convert.ln.FilterMag[1] = D3DTEXF_LINEAR;
+	m_convert.ln.FilterMip[1] = D3DTEXF_NONE;
 	m_convert.ln.AddressU = D3DTADDRESS_CLAMP;
 	m_convert.ln.AddressV = D3DTADDRESS_CLAMP;
-	m_convert.ln.MaxAnisotropy = theApp.GetConfigI("MaxAnisotropy");
+	m_convert.ln.MaxAnisotropy = 0;
 
-	m_convert.pt.FilterMin[0] = PointToAnisotropic;
-	m_convert.pt.FilterMag[0] = PointToAnisotropic;
-	m_convert.pt.FilterMin[1] = PointToAnisotropic;
-	m_convert.pt.FilterMag[1] = PointToAnisotropic;
+	m_convert.pt.FilterMin[0] = D3DTEXF_POINT;
+	m_convert.pt.FilterMag[0] = D3DTEXF_POINT;
+	m_convert.pt.FilterMip[0] = D3DTEXF_NONE;
+	m_convert.pt.FilterMin[1] = D3DTEXF_POINT;
+	m_convert.pt.FilterMag[1] = D3DTEXF_POINT;
+	m_convert.pt.FilterMip[1] = D3DTEXF_NONE;
 	m_convert.pt.AddressU = D3DTADDRESS_CLAMP;
 	m_convert.pt.AddressV = D3DTADDRESS_CLAMP;
-	m_convert.pt.MaxAnisotropy = theApp.GetConfigI("MaxAnisotropy");
+	m_convert.pt.MaxAnisotropy = 0;
 
 	// merge
 
@@ -1365,36 +1368,36 @@ void GSDevice9::PSSetSamplerState(Direct3DSamplerState9* ss)
 		m_dev->SetSamplerState(0, D3DSAMP_MAXANISOTROPY, ss->MaxAnisotropy);
 		m_dev->SetSamplerState(0, D3DSAMP_MAXMIPLEVEL, ss->MaxLOD);
 
-		m_dev->SetSamplerState(1, D3DSAMP_MINFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(1, D3DSAMP_MAGFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(1, D3DSAMP_MIPFILTER, ss->Anisotropic[1]);
+		m_dev->SetSamplerState(1, D3DSAMP_MINFILTER, ss->FilterMin[1]);
+		m_dev->SetSamplerState(1, D3DSAMP_MAGFILTER, ss->FilterMag[1]);
+		m_dev->SetSamplerState(1, D3DSAMP_MIPFILTER, ss->FilterMip[1]);
 		m_dev->SetSamplerState(1, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(1, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(1, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(1, D3DSAMP_MAXANISOTROPY, ss->MaxAnisotropy);
 		m_dev->SetSamplerState(1, D3DSAMP_MAXMIPLEVEL, ss->MaxLOD);
 
-		m_dev->SetSamplerState(2, D3DSAMP_MINFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(2, D3DSAMP_MAGFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(2, D3DSAMP_MIPFILTER, ss->Anisotropic[1]);
+		m_dev->SetSamplerState(2, D3DSAMP_MINFILTER, ss->FilterMin[1]);
+		m_dev->SetSamplerState(2, D3DSAMP_MAGFILTER, ss->FilterMag[1]);
+		m_dev->SetSamplerState(2, D3DSAMP_MIPFILTER, ss->FilterMip[1]);
 		m_dev->SetSamplerState(2, D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(2, D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(2, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(2, D3DSAMP_MAXANISOTROPY, ss->MaxAnisotropy);
 		m_dev->SetSamplerState(2, D3DSAMP_MAXMIPLEVEL, ss->MaxLOD);
 
-		m_dev->SetSamplerState(3, D3DSAMP_MINFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(3, D3DSAMP_MAGFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(3, D3DSAMP_MIPFILTER, ss->Anisotropic[1]);
+		m_dev->SetSamplerState(3, D3DSAMP_MINFILTER, ss->FilterMin[1]);
+		m_dev->SetSamplerState(3, D3DSAMP_MAGFILTER, ss->FilterMag[1]);
+		m_dev->SetSamplerState(3, D3DSAMP_MIPFILTER, ss->FilterMip[1]);
 		m_dev->SetSamplerState(3, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
 		m_dev->SetSamplerState(3, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
 		m_dev->SetSamplerState(3, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
 		m_dev->SetSamplerState(3, D3DSAMP_MAXANISOTROPY, ss->MaxAnisotropy);
 		m_dev->SetSamplerState(3, D3DSAMP_MAXMIPLEVEL, ss->MaxLOD);
 
-		m_dev->SetSamplerState(4, D3DSAMP_MINFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(4, D3DSAMP_MAGFILTER, ss->Anisotropic[1]);
-		m_dev->SetSamplerState(4, D3DSAMP_MIPFILTER, ss->Anisotropic[1]);
+		m_dev->SetSamplerState(4, D3DSAMP_MINFILTER, ss->FilterMin[1]);
+		m_dev->SetSamplerState(4, D3DSAMP_MAGFILTER, ss->FilterMag[1]);
+		m_dev->SetSamplerState(4, D3DSAMP_MIPFILTER, ss->FilterMip[1]);
 		m_dev->SetSamplerState(4, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
 		m_dev->SetSamplerState(4, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
 		m_dev->SetSamplerState(4, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
