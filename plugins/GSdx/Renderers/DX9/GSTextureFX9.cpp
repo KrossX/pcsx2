@@ -24,6 +24,59 @@
 #include "resource.h"
 #include "GSTables.h"
 
+void GSDevice9::UpdateDithering(GIFRegDIMX *DIMX)
+{
+	uint32_t *a = (uint32_t*)&m_dither_cache;
+	uint32_t *b = (uint32_t*)DIMX;
+
+	if (a[0] != b[0] || a[1] != b[1]) {
+		a[0] = b[0];
+		a[1] = b[1];
+
+		if (!m_dither_tex) {
+			m_dither_tex = CreateTexture(4, 4, D3DFMT_L8);
+			m_dev->SetTexture(5, *(GSTexture9*)m_dither_tex);
+
+			m_dev->SetSamplerState(5, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+			m_dev->SetSamplerState(5, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+			m_dev->SetSamplerState(5, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
+			m_dev->SetSamplerState(5, D3DSAMP_ADDRESSU, D3DTADDRESS_WRAP);
+			m_dev->SetSamplerState(5, D3DSAMP_ADDRESSV, D3DTADDRESS_WRAP);
+			m_dev->SetSamplerState(5, D3DSAMP_ADDRESSW, D3DTADDRESS_CLAMP);
+			m_dev->SetSamplerState(5, D3DSAMP_MAXANISOTROPY, 0);
+			m_dev->SetSamplerState(5, D3DSAMP_MAXMIPLEVEL, 0);
+		}
+
+		if (m_dither_tex) {
+			GSTexture::GSMap m;
+
+			if (m_dither_tex->Map(m)) {
+				m.bits[0] = (uint8)(4 + DIMX->DM00);
+				m.bits[1] = (uint8)(4 + DIMX->DM10);
+				m.bits[2] = (uint8)(4 + DIMX->DM20);
+				m.bits[3] = (uint8)(4 + DIMX->DM30);
+
+				m.bits[4] = (uint8)(4 + DIMX->DM01);
+				m.bits[5] = (uint8)(4 + DIMX->DM11);
+				m.bits[6] = (uint8)(4 + DIMX->DM21);
+				m.bits[7] = (uint8)(4 + DIMX->DM31);
+
+				m.bits[ 8] = (uint8)(4 + DIMX->DM02);
+				m.bits[ 9] = (uint8)(4 + DIMX->DM12);
+				m.bits[10] = (uint8)(4 + DIMX->DM22);
+				m.bits[11] = (uint8)(4 + DIMX->DM32);
+
+				m.bits[12] = (uint8)(4 + DIMX->DM03);
+				m.bits[13] = (uint8)(4 + DIMX->DM13);
+				m.bits[14] = (uint8)(4 + DIMX->DM23);
+				m.bits[15] = (uint8)(4 + DIMX->DM33);
+
+				m_dither_tex->Unmap();
+			}
+		}
+	}
+}
+
 GSTexture* GSDevice9::CreateMskFix(uint32 size, uint32 msk, uint32 fix)
 {
 	GSTexture* t = NULL;
@@ -129,6 +182,7 @@ void GSDevice9::SetupPS(PSSelector sel, const PSConstantBuffer* cb, PSSamplerSel
 	{
 		ShaderMacro sm(m_shader.model);
 
+		sm.AddMacro("PS_SCALE_FACTOR", std::max(1, m_upscale_multiplier));
 		sm.AddMacro("PS_FST", sel.fst);
 		sm.AddMacro("PS_WMS", sel.wms);
 		sm.AddMacro("PS_WMT", sel.wmt);
@@ -145,6 +199,7 @@ void GSDevice9::SetupPS(PSSelector sel, const PSConstantBuffer* cb, PSSamplerSel
 		sm.AddMacro("PS_DATE", sel.date);
 		sm.AddMacro("PS_TCOFFSETHACK", sel.tcoffsethack);
 		sm.AddMacro("PS_PAL_FMT", sel.fmt >> 2);
+		sm.AddMacro("PS_DITHER", sel.dither);
 		sm.AddMacro("PS_ZCLAMP", sel.zclamp);
 
 		CComPtr<IDirect3DPixelShader9> ps;

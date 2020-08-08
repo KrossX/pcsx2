@@ -26,13 +26,16 @@
 #include <fstream>
 
 GSDevice9::GSDevice9()
-	: m_lost(false)
+	: m_lost(false),
+	m_dither_tex(NULL),
+	m_dither_rebuild(false)
 {
 	m_rbswapped = true;
 	FXAA_Compiled = false;
 	ExShader_Compiled = false;
 
 	m_aniso = theApp.GetConfigB("paltex") ? 0 : theApp.GetConfigI("MaxAnisotropy");
+	m_upscale_multiplier = theApp.GetConfigI("upscale_multiplier");
 	m_mipmap = theApp.GetConfigI("mipmap");
 	m_msaa = theApp.GetConfigB("UserHacks") ? theApp.GetConfigI("UserHacks_MSAA") : 0;
 
@@ -42,6 +45,7 @@ GSDevice9::GSDevice9()
 	memset(&m_pp, 0, sizeof(m_pp));
 	memset(&m_d3dcaps, 0, sizeof(m_d3dcaps));
 	memset(&m_state, 0, sizeof(m_state));
+	memset(&m_dither_cache, 0, sizeof(m_dither_cache));
 
 	m_state.bf = 0xffffffff;
 }

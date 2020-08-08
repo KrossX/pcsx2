@@ -250,6 +250,9 @@ public:
 				// Others ways to fetch the texture
 				uint32 channel:3;
 
+				// Dithering
+				uint32 dither:2;
+
 				// Depth clamp
 				uint32 zclamp : 1;
 
@@ -260,7 +263,7 @@ public:
 				uint32 tales_of_abyss_hle:1;
 				uint32 point_sampler:1;
 
-				uint32 _free:20;
+				uint32 _free:18;
 			};
 
 			uint64 key;
@@ -411,6 +414,10 @@ private:
 	uint32 m_msaa;
 	DXGI_SAMPLE_DESC m_msaa_desc;
 
+	GSTexture *m_dither_tex;
+	GIFRegDIMX m_dither_cache;
+	bool m_dither_rebuild;
+
 	struct
 	{
 		IDirect3DVertexBuffer9* vb;
@@ -494,6 +501,7 @@ public: // TODO
 	std::unordered_map<uint32, GSTexture*> m_mskfix;
 
 	GSTexture* CreateMskFix(uint32 size, uint32 msk, uint32 fix);
+	void UpdateDithering(GIFRegDIMX *DIMX);
 
 public:
 	GSDevice9();

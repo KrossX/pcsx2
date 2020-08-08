@@ -801,6 +801,13 @@ void GSRendererDX9::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 
 	m_ps_sel.clr1 = m_om_bsel.IsCLR1();
 	m_ps_sel.fba = m_context->FBA.FBA;
+	m_ps_sel.dither = m_dithering > 0 && m_ps_sel.dfmt == 2 && m_env.DTHE.DTHE;
+
+	if (m_ps_sel.dither)
+	{
+		m_ps_sel.dither = m_dithering;
+		dev->UpdateDithering(&m_env.DIMX);
+	}
 
 	// FIXME: Purge aout with AlphaHack when FbMask emulation is added.
 	if (m_ps_sel.shuffle)

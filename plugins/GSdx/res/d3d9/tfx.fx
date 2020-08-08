@@ -11,6 +11,7 @@
 #endif
 
 #ifndef PS_FST
+#define PS_SCALE_FACTOR 1
 #define PS_FST 0
 #define PS_WMS 0
 #define PS_WMT 0
@@ -26,6 +27,7 @@
 #define PS_COLCLIP 0
 #define PS_DATE 0
 #define PS_PAL_FMT 0
+#define PS_DITHER 0
 #define PS_ZCLAMP 0
 #endif
 
@@ -52,6 +54,7 @@ struct PS_INPUT
 	float4 t  : TEXCOORD0;
 	float4 tp : TEXCOORD1;
 	float4 c  : COLOR0;
+	float2 fp : VPOS;
 };
 
 struct PS_OUTPUT
@@ -67,6 +70,7 @@ sampler Palette : register(s1);
 sampler RTCopy : register(s2);
 sampler1D UMSKFIX : register(s3);
 sampler1D VMSKFIX : register(s4);
+sampler Dither : register(s5);
 
 float4 vs_params[4];
 
@@ -478,12 +482,28 @@ VS_OUTPUT vs_main(VS_INPUT input)
 	return output;
 }
 
+void ps_dither(inout float3 c, float2 pos)
+{
+	if(PS_DITHER) {
+		if(PS_DITHER == 2)
+			pos = pos * 0.25; //fpos / 4
+		else
+			pos = pos * (0.25/PS_SCALE_FACTOR);
+
+		float4 lum = tex2D(Dither, pos) - 4.0/255;
+		c += lum.rgb;
+		c = trunc(saturate(c) * (255/8.0))*(8.0/255);
+	}
+}
+
 PS_OUTPUT ps_main(PS_INPUT input)
 {
 	PS_OUTPUT output;
 
 	output.color = ps_color(input);
 	output.color.a *= 2;
+
+	ps_dither(output.color.rgb, input.fp);
 
 #if PS_ZCLAMP
 	output.depth = min(input.p.z, MaxDepthPS);
