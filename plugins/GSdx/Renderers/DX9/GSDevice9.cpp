@@ -775,7 +775,7 @@ GSTexture* GSDevice9::FetchSurface(int type, int w, int h, int format, bool msaa
 		msaa = false;
 
 	if (format == 0)
-		format = (type == GSTexture::DepthStencil || type == GSTexture::SparseDepthStencil) ? D3DFMT_D24S8 : D3DFMT_A8R8G8B8;
+		format = (type == GSTexture::DepthStencil || type == GSTexture::SparseDepthStencil) ? m_depth_format : D3DFMT_A8R8G8B8;
 
 	return __super::FetchSurface(type, w, h, format, msaa);
 }

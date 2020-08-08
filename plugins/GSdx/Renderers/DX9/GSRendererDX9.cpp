@@ -777,8 +777,9 @@ void GSRendererDX9::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 		oy2 *= rt->OffsetHack_mody;
 	}
 
-	vs_cb.VertexScale  = GSVector4(sx, -sy, ldexpf(1, -32), 0.0f);
-	vs_cb.VertexOffset = GSVector4(ox * sx + ox2 + 1, -(oy * sy + oy2 + 1), 0.0f, -1.0f);
+	vs_cb.Vertex_Scale_Offset = GSVector4(sx, -sy, ox * sx + ox2 + 1, -(oy * sy + oy2 + 1));
+	//vs_cb.VertexScale  = GSVector4(sx, -sy, ldexpf(1, -32), 0.0f);
+	//vs_cb.VertexOffset = GSVector4(ox * sx + ox2 + 1, -(oy * sy + oy2 + 1), 0.0f, -1.0f);
 
 	// gs
 

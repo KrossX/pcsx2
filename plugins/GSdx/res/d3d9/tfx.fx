@@ -70,10 +70,9 @@ sampler1D VMSKFIX : register(s4);
 
 float4 vs_params[4];
 
-#define VertexScale				vs_params[0]
-#define VertexOffset			vs_params[1]
-#define Texture_Scale_Offset	vs_params[2]
-#define MaxDepthVS				vs_params[3].x
+#define Vertex_Scale_Offset		vs_params[0]
+#define Texture_Scale_Offset	vs_params[1]
+#define MaxDepthVS				vs_params[2].x
 
 float4 ps_params[7];
 
@@ -439,6 +438,9 @@ VS_OUTPUT vs_main(VS_INPUT input)
 	// example: 133.0625 (133 + 1/16) should start from line 134, ceil(133.0625 - 0.05) still above 133
 
 	float4 p = input.p - float4(0.05f, 0.05f, 0, 0);
+
+	float4 VertexScale  = float4(Vertex_Scale_Offset.xy, exp2(-32), 0);
+	float4 VertexOffset = float4(Vertex_Scale_Offset.zw, 0, -1);
 
 	output.p = p * VertexScale - VertexOffset;
 	output.tp = (p * VertexScale - VertexOffset) * float4(0.5, -0.5, 0, 0) + 0.5;

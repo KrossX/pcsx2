@@ -78,15 +78,13 @@ public:
 
 	struct alignas(32) VSConstantBuffer
 	{
-		GSVector4 VertexScale;
-		GSVector4 VertexOffset;
+		GSVector4 Vertex_Scale_Offset;
 		GSVector4 Texture_Scale_Offset;
 		GSVector4 MaxDepth;
 
 		struct VSConstantBuffer()
 		{
-			VertexScale = GSVector4::zero();
-			VertexOffset = GSVector4::zero();
+			Vertex_Scale_Offset = GSVector4::zero();
 			Texture_Scale_Offset = GSVector4::zero();
 			MaxDepth = GSVector4::zero();
 		}
@@ -96,12 +94,11 @@ public:
 			GSVector4i* a = (GSVector4i*)this;
 			GSVector4i* b = (GSVector4i*)cb;
 
-			if(!((a[0] == b[0]) & (a[1] == b[1]) & (a[2] == b[2]) & (a[3] == b[3])).alltrue())
+			if(!((a[0] == b[0]) & (a[1] == b[1]) & (a[2] == b[2])).alltrue())
 			{
 				a[0] = b[0];
 				a[1] = b[1];
 				a[2] = b[2];
-				a[3] = b[3];
 
 				return true;
 			}
