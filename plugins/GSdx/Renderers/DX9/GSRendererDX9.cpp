@@ -370,28 +370,10 @@ void GSRendererDX9::EmulateZbuffer()
 		}
 		else
 		{
-			ps_cb.TCOH_MZ = GSVector4((float)max_z * ldexpf(1, -32));
+			ps_cb.TCOH_MZ.z = (float)max_z * ldexpf(1, -32);
 			m_ps_sel.zclamp = 1;
 		}
 	}
-
-#if 0
-	if (m_om_dssel.ztst >= ZTST_ALWAYS && m_om_dssel.zwe && (m_context->ZBUF.PSM != PSM_PSMZ32))
-	{
-		if (m_vt.m_max.p.z > max_z)
-		{
-			ASSERT(m_vt.m_min.p.z > max_z); // sfex capcom logo
-			// Fixme :Following conditional fixes some dialog frame in Wild Arms 3, but may not be what was intended.
-			if (m_vt.m_min.p.z > max_z)
-			{
-#ifdef _DEBUG
-				fprintf(stdout, "Bad Z size on %s buffers\n", psm_str(m_context->ZBUF.PSM));
-#endif
-				m_om_dssel.ztst = ZTST_ALWAYS;
-			}
-		}
-	}
-#endif
 
 	GSVertex* v = &m_vertex.buff[0];
 	// Minor optimization of a corner case (it allow to better emulate some alpha test effects)
@@ -778,8 +760,6 @@ void GSRendererDX9::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sour
 	}
 
 	vs_cb.Vertex_Scale_Offset = GSVector4(sx, -sy, ox * sx + ox2 + 1, -(oy * sy + oy2 + 1));
-	//vs_cb.VertexScale  = GSVector4(sx, -sy, ldexpf(1, -32), 0.0f);
-	//vs_cb.VertexOffset = GSVector4(ox * sx + ox2 + 1, -(oy * sy + oy2 + 1), 0.0f, -1.0f);
 
 	// gs
 
