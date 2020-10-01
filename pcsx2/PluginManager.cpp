@@ -22,7 +22,6 @@
 
 #include "GS.h"
 #include "Gif.h"
-#include "CDVD/CDVDisoReader.h"
 
 #include "Utilities/pxStreams.h"
 
@@ -83,9 +82,7 @@ const PluginInfo tbl_PluginInfo[] =
 	{ "GS",		PluginId_GS,	PS2E_LT_GS,		PS2E_GS_VERSION		},
 	{ "PAD",	PluginId_PAD,	PS2E_LT_PAD,	PS2E_PAD_VERSION	},
 	{ "SPU2",	PluginId_SPU2,	PS2E_LT_SPU2,	PS2E_SPU2_VERSION	},
-	{ "CDVD",	PluginId_CDVD,	PS2E_LT_CDVD,	PS2E_CDVD_VERSION	},
 	{ "USB",	PluginId_USB,	PS2E_LT_USB,	PS2E_USB_VERSION	},
-	{ "FW",		PluginId_FW,	PS2E_LT_FW,		PS2E_FW_VERSION		},
 	{ "DEV9",	PluginId_DEV9,	PS2E_LT_DEV9,	PS2E_DEV9_VERSION	},
 
 	{ NULL },
@@ -195,7 +192,7 @@ static void CALLBACK GS_changeSaveState( int, const char* filename ) {}
 void CALLBACK GS_getTitleInfo2( char* dest, size_t length )
 {
 	// Just return a generic "GS" title -- a plugin actually implementing this feature
-	// should return a title such as "GSdx" or "ZZogl" instead.  --air
+	// should return a title such as "GSdx" instead.  --air
 
 	dest[0] = 'G';
 	dest[1] = 'S';
@@ -282,6 +279,7 @@ static void PAD_update( u32 padslot ) { }
 _SPU2open          SPU2open;
 _SPU2write         SPU2write;
 _SPU2reset         SPU2reset;
+_SPU2ps1reset      SPU2ps1reset;
 _SPU2read          SPU2read;
 
 _SPU2readDMA4Mem   SPU2readDMA4Mem;
@@ -334,14 +332,6 @@ _USBasync          USBasync;
 _USBirqCallback    USBirqCallback;
 _USBirqHandler     USBirqHandler;
 _USBsetRAM         USBsetRAM;
-#endif
-
-// FW
-#ifndef BUILTIN_FW_PLUGIN
-_FWopen            FWopen;
-_FWread32          FWread32;
-_FWwrite32         FWwrite32;
-_FWirqCallback     FWirqCallback;
 #endif
 
 DEV9handler dev9Handler;
@@ -448,118 +438,6 @@ static const LegacyApi_OptMethod s_MethMessOpt_PAD[] =
 };
 
 // ----------------------------------------------------------------------------
-//  CDVD Mess!
-// ----------------------------------------------------------------------------
-void CALLBACK CDVD_newDiskCB(void (*callback)()) {}
-
-extern int lastReadSize;
-extern u32 lastLSN;
-static s32 CALLBACK CDVD_getBuffer2(u8* buffer)
-{
-	// TEMP: until I fix all the plugins to use this function style
-	u8* pb = CDVD->getBuffer();
-	if(pb == NULL) return -2;
-
-	memcpy( buffer, pb, lastReadSize );
-	return 0;
-}
-
-static s32 CALLBACK CDVD_readSector(u8* buffer, u32 lsn, int mode)
-{
-	if(CDVD->readTrack(lsn,mode) < 0)
-		return -1;
-
-	// TEMP: until all the plugins use the new CDVDgetBuffer style
-	switch (mode)
-	{
-	case CDVD_MODE_2352:
-		lastReadSize = 2352;
-		break;
-	case CDVD_MODE_2340:
-		lastReadSize = 2340;
-		break;
-	case CDVD_MODE_2328:
-		lastReadSize = 2328;
-		break;
-	case CDVD_MODE_2048:
-		lastReadSize = 2048;
-		break;
-	}
-
-	lastLSN = lsn;
-	return CDVD->getBuffer2(buffer);
-}
-
-static s32 CALLBACK CDVD_getDualInfo(s32* dualType, u32* layer1Start)
-{
-	u8 toc[2064];
-
-	// if error getting toc, settle for single layer disc ;)
-	if(CDVD->getTOC(toc))
-		return 0;
-
-	if(toc[14] & 0x60)
-	{
-		if(toc[14] & 0x10)
-		{
-			// otp dvd
-			*dualType = 2;
-			*layer1Start = (toc[25]<<16) + (toc[26]<<8) + (toc[27]) - 0x30000 + 1;
-		}
-		else
-		{
-			// ptp dvd
-			*dualType = 1;
-			*layer1Start = (toc[21]<<16) + (toc[22]<<8) + (toc[23]) - 0x30000 + 1;
-		}
-	}
-	else
-	{
-		// single layer dvd
-		*dualType = 0;
-		*layer1Start = (toc[21]<<16) + (toc[22]<<8) + (toc[23]) - 0x30000 + 1;
-	}
-
-	return 1;
-}
-
-CDVD_API CDVDapi_Plugin =
-{
-	// All of these are filled by the plugin manager
-	NULL
-};
-
-CDVD_API* CDVD			= NULL;
-
-static const LegacyApi_ReqMethod s_MethMessReq_CDVD[] =
-{
-	{	"CDVDopen",			(vMeth**)&CDVDapi_Plugin.open,			NULL },
-	{	"CDVDclose",		(vMeth**)&CDVDapi_Plugin.close,			NULL },
-	{	"CDVDreadTrack",	(vMeth**)&CDVDapi_Plugin.readTrack,		NULL },
-	{	"CDVDgetBuffer",	(vMeth**)&CDVDapi_Plugin.getBuffer,		NULL },
-	{	"CDVDreadSubQ",		(vMeth**)&CDVDapi_Plugin.readSubQ,		NULL },
-	{	"CDVDgetTN",		(vMeth**)&CDVDapi_Plugin.getTN,			NULL },
-	{	"CDVDgetTD",		(vMeth**)&CDVDapi_Plugin.getTD,			NULL },
-	{	"CDVDgetTOC",		(vMeth**)&CDVDapi_Plugin.getTOC,		NULL },
-	{	"CDVDgetDiskType",	(vMeth**)&CDVDapi_Plugin.getDiskType,	NULL },
-	{	"CDVDgetTrayStatus",(vMeth**)&CDVDapi_Plugin.getTrayStatus,	NULL },
-	{	"CDVDctrlTrayOpen",	(vMeth**)&CDVDapi_Plugin.ctrlTrayOpen,	NULL },
-	{	"CDVDctrlTrayClose",(vMeth**)&CDVDapi_Plugin.ctrlTrayClose,	NULL },
-	{	"CDVDnewDiskCB",	(vMeth**)&CDVDapi_Plugin.newDiskCB,		(vMeth*)CDVD_newDiskCB },
-
-	{	"CDVDreadSector",	(vMeth**)&CDVDapi_Plugin.readSector,	(vMeth*)CDVD_readSector },
-	{	"CDVDgetBuffer2",	(vMeth**)&CDVDapi_Plugin.getBuffer2,	(vMeth*)CDVD_getBuffer2 },
-	{	"CDVDgetDualInfo",	(vMeth**)&CDVDapi_Plugin.getDualInfo,	(vMeth*)CDVD_getDualInfo },
-
-	{ NULL }
-};
-
-static const LegacyApi_OptMethod s_MethMessOpt_CDVD[] =
-{
-	{ NULL }
-};
-
-// ----------------------------------------------------------------------------
 //  SPU2 Mess!
 // ----------------------------------------------------------------------------
 
@@ -574,6 +452,7 @@ static const LegacyApi_ReqMethod s_MethMessReq_SPU2[] =
 {
 	{	"SPU2open",				(vMeth**)&SPU2open,			NULL },
 	{	"SPU2reset",			(vMeth**)&SPU2reset,		SPU2_Reset },
+	{   "SPU2ps1reset",         (vMeth**)&SPU2ps1reset,     SPU2ps1reset},
 	{	"SPU2write",			(vMeth**)&SPU2write,		NULL },
 	{	"SPU2read",				(vMeth**)&SPU2read,			NULL },
 	{	"SPU2readDMA4Mem",		(vMeth**)&SPU2readDMA4Mem,	NULL },
@@ -649,31 +528,12 @@ static const LegacyApi_OptMethod s_MethMessOpt_USB[] =
 	{ NULL }
 };
 
-// ----------------------------------------------------------------------------
-//  FW Mess!
-// ----------------------------------------------------------------------------
-static const LegacyApi_ReqMethod s_MethMessReq_FW[] =
-{
-	{	"FWopen",			(vMeth**)&FWopen,			NULL },
-	{	"FWread32",			(vMeth**)&FWread32,			NULL },
-	{	"FWwrite32",		(vMeth**)&FWwrite32,		NULL },
-	{	"FWirqCallback",	(vMeth**)&FWirqCallback,	NULL },
-	{ NULL }
-};
-
-static const LegacyApi_OptMethod s_MethMessOpt_FW[] =
-{
-	{ NULL }
-};
-
 static const LegacyApi_ReqMethod* const s_MethMessReq[] =
 {
 	s_MethMessReq_GS,
 	s_MethMessReq_PAD,
 	s_MethMessReq_SPU2,
-	s_MethMessReq_CDVD,
 	s_MethMessReq_USB,
-	s_MethMessReq_FW,
 	s_MethMessReq_DEV9
 };
 
@@ -682,9 +542,7 @@ static const LegacyApi_OptMethod* const s_MethMessOpt[] =
 	s_MethMessOpt_GS,
 	s_MethMessOpt_PAD,
 	s_MethMessOpt_SPU2,
-	s_MethMessOpt_CDVD,
 	s_MethMessOpt_USB,
-	s_MethMessOpt_FW,
 	s_MethMessOpt_DEV9
 };
 
@@ -851,17 +709,11 @@ void* StaticLibrary::GetSymbol(const wxString &name)
 #ifdef BUILTIN_SPU2_PLUGIN
 	RETURN_COMMON_SYMBOL(SPU2);
 #endif
-#ifdef BUILTIN_CDVD_PLUGIN
-	RETURN_COMMON_SYMBOL(CDVD);
-#endif
 #ifdef BUILTIN_DEV9_PLUGIN
 	RETURN_COMMON_SYMBOL(DEV9);
 #endif
 #ifdef BUILTIN_USB_PLUGIN
 	RETURN_COMMON_SYMBOL(USB);
-#endif
-#ifdef BUILTIN_FW_PLUGIN
-	RETURN_COMMON_SYMBOL(FW);
 #endif
 
 
@@ -921,17 +773,11 @@ SysCorePlugins::PluginStatus_t::PluginStatus_t( PluginsEnum_t _pid, const wxStri
 #ifdef BUILTIN_SPU2_PLUGIN
 		case PluginId_SPU2:
 #endif
-#ifdef BUILTIN_CDVD_PLUGIN
-		case PluginId_CDVD:
-#endif
 #ifdef BUILTIN_DEV9_PLUGIN
 		case PluginId_DEV9:
 #endif
 #ifdef BUILTIN_USB_PLUGIN
 		case PluginId_USB:
-#endif
-#ifdef BUILTIN_FW_PLUGIN
-		case PluginId_FW:
 #endif
 		case PluginId_Count:
 			IsStatic	= true;
@@ -1097,15 +943,13 @@ void SysCorePlugins::Load( const wxString (&folders)[PluginId_Count] )
 	Console.WriteLn(Color_StrongBlue, L"\nLoading plugins from %s...", WX_STR(g_Conf->Folders[FolderId_Plugins].ToString()));
 
 	ConsoleIndentScope indent;
-	const PluginInfo* pi = tbl_PluginInfo; do
-	{
+
+	ForPlugins([&] (const PluginInfo * pi) {
 		Load( pi->id, folders[pi->id] );
 		pxYield( 2 );
+	});
 
-	} while( ++pi, pi->shortname != NULL );
 	indent.LeaveScope();
-
-	CDVDapi_Plugin.newDiskCB( cdvdNewDiskCB );
 
 	// Hack for PAD's stupid parameter passed on Init
 	PADinit = (_PADinit)m_info[PluginId_PAD]->CommonBindings.Init;
@@ -1190,11 +1034,6 @@ extern void spu2DMA4Irq();
 extern void spu2DMA7Irq();
 extern void spu2Irq();
 
-bool SysCorePlugins::OpenPlugin_CDVD()
-{
-	return DoCDVDopen();
-}
-
 bool SysCorePlugins::OpenPlugin_GS()
 {
 	GetMTGS().Resume();
@@ -1239,13 +1078,6 @@ bool SysCorePlugins::OpenPlugin_USB()
 	return true;
 }
 
-bool SysCorePlugins::OpenPlugin_FW()
-{
-	if( FWopen((void*)pDsp) ) return false;
-	FWirqCallback( fwIrq );
-	return true;
-}
-
 bool SysCorePlugins::OpenPlugin_Mcd()
 {
 	ScopedLock lock( m_mtx_PluginStatus );
@@ -1271,10 +1103,8 @@ void SysCorePlugins::Open( PluginsEnum_t pid )
 	{
 		case PluginId_GS:	result = OpenPlugin_GS();	break;
 		case PluginId_PAD:	result = OpenPlugin_PAD();	break;
-		case PluginId_CDVD:	result = OpenPlugin_CDVD();	break;
 		case PluginId_SPU2:	result = OpenPlugin_SPU2();	break;
 		case PluginId_USB:	result = OpenPlugin_USB();	break;
-		case PluginId_FW:	result = OpenPlugin_FW();	break;
 		case PluginId_DEV9:	result = OpenPlugin_DEV9();	break;
 
 		jNO_DEFAULT;
@@ -1296,7 +1126,7 @@ void SysCorePlugins::Open()
 
 	SendSettingsFolder();
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
+	ForPlugins([&] (const PluginInfo * pi) {
 		Open( pi->id );
 		// If GS doesn't support GSopen2, need to wait until call to GSopen
 		// returns to populate pDsp.  If it does, can initialize other plugins
@@ -1310,7 +1140,7 @@ void SysCorePlugins::Open()
 #else
 		if (pi->id == PluginId_GS && !GSopen2) GetMTGS().WaitForOpen();
 #endif
-	} while( ++pi, pi->shortname != NULL );
+	});
 
 	if (GSopen2) GetMTGS().WaitForOpen();
 
@@ -1342,11 +1172,6 @@ void SysCorePlugins::ClosePlugin_GS()
 	}
 }
 
-void SysCorePlugins::ClosePlugin_CDVD()
-{
-	DoCDVDclose();
-}
-
 void SysCorePlugins::ClosePlugin_PAD()
 {
 	_generalclose( PluginId_PAD );
@@ -1365,11 +1190,6 @@ void SysCorePlugins::ClosePlugin_DEV9()
 void SysCorePlugins::ClosePlugin_USB()
 {
 	_generalclose( PluginId_USB );
-}
-
-void SysCorePlugins::ClosePlugin_FW()
-{
-	_generalclose( PluginId_FW );
 }
 
 void SysCorePlugins::ClosePlugin_Mcd()
@@ -1391,10 +1211,8 @@ void SysCorePlugins::Close( PluginsEnum_t pid )
 	{
 		case PluginId_GS:	ClosePlugin_GS();	break;
 		case PluginId_PAD:	ClosePlugin_PAD();	break;
-		case PluginId_CDVD:	ClosePlugin_CDVD();	break;
 		case PluginId_SPU2:	ClosePlugin_SPU2();	break;
 		case PluginId_USB:	ClosePlugin_USB();	break;
-		case PluginId_FW:	ClosePlugin_FW();	break;
 		case PluginId_DEV9:	ClosePlugin_DEV9();	break;
 		case PluginId_Mcd:	ClosePlugin_Mcd();	break;
 		
@@ -1465,9 +1283,10 @@ bool SysCorePlugins::Init()
 	if( !NeedsInit() ) return false;
 
 	Console.WriteLn( Color_StrongBlue, "Initializing plugins..." );
-	const PluginInfo* pi = tbl_PluginInfo; do {
+
+	ForPlugins([&] (const PluginInfo * pi) {
 		Init( pi->id );
-	} while( ++pi, pi->shortname != NULL );
+	});
 
 	if( SysPlugins.Mcd == NULL )
 	{
@@ -1683,10 +1502,10 @@ bool SysCorePlugins::KeyEvent( const keyEvent& evt )
 	// pick up the key and return "true" (for handled) will cause the loop to break.
 	// The current version of PS2E doesn't support it yet, though.
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
+	ForPlugins([&] (const PluginInfo * pi) {
 		if( pi->id != PluginId_PAD && m_info[pi->id] )
 			m_info[pi->id]->CommonBindings.KeyEvent( const_cast<keyEvent*>(&evt) );
-	} while( ++pi, pi->shortname != NULL );
+	});
 
 	return false;
 }
@@ -1696,9 +1515,9 @@ void SysCorePlugins::SendSettingsFolder()
 	ScopedLock lock( m_mtx_PluginStatus );
 	if( m_SettingsFolder.IsEmpty() ) return;
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
+	ForPlugins([&] (const PluginInfo * pi) {
 		if( m_info[pi->id] ) m_info[pi->id]->CommonBindings.SetSettingsDir( m_SettingsFolder.utf8_str() );
-	} while( ++pi, pi->shortname != NULL );
+	});
 }
 
 void SysCorePlugins::SetSettingsFolder( const wxString& folder )
@@ -1720,9 +1539,9 @@ void SysCorePlugins::SendLogFolder()
 	ScopedLock lock( m_mtx_PluginStatus );
 	if( m_LogFolder.IsEmpty() ) return;
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
+	ForPlugins([&] (const PluginInfo * pi) {
 		if( m_info[pi->id] ) m_info[pi->id]->CommonBindings.SetLogDir( m_LogFolder.utf8_str() );
-	} while( ++pi, pi->shortname != NULL );
+	});
 }
 
 void SysCorePlugins::SetLogFolder( const wxString& folder )
@@ -1759,11 +1578,10 @@ bool SysCorePlugins::AreLoaded() const
 bool SysCorePlugins::AreOpen() const
 {
 	ScopedLock lock( m_mtx_PluginStatus );
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( !IsOpen(pi->id) ) return false;
-	} while( ++pi, pi->shortname != NULL );
 
-	return true;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return !IsOpen(pi->id);
+	});
 }
 
 bool SysCorePlugins::AreAnyLoaded() const
@@ -1780,11 +1598,10 @@ bool SysCorePlugins::AreAnyLoaded() const
 bool SysCorePlugins::AreAnyInitialized() const
 {
 	ScopedLock lock( m_mtx_PluginStatus );
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( IsInitialized(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
 
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return IsInitialized(pi->id);
+	});
 }
 
 bool SysCorePlugins::IsOpen( PluginsEnum_t pid ) const
@@ -1809,60 +1626,49 @@ bool SysCorePlugins::IsLoaded( PluginsEnum_t pid ) const
 
 bool SysCorePlugins::NeedsLoad() const
 {
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( !IsLoaded(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
-	
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return !IsLoaded(pi->id);
+	});
 }		
 
 bool SysCorePlugins::NeedsUnload() const
 {
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( IsLoaded(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
 
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return IsLoaded(pi->id);
+	});
 }		
 
 bool SysCorePlugins::NeedsInit() const
 {
 	ScopedLock lock( m_mtx_PluginStatus );
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( !IsInitialized(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
-
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return !IsInitialized(pi->id);
+	});
 }
 
 bool SysCorePlugins::NeedsShutdown() const
 {
 	ScopedLock lock( m_mtx_PluginStatus );
 
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( IsInitialized(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
-
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return IsInitialized(pi->id);
+	});
 }
 
 bool SysCorePlugins::NeedsOpen() const
 {
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( !IsOpen(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
-
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return !IsOpen(pi->id);
+	});
 }
 
 bool SysCorePlugins::NeedsClose() const
 {
-	const PluginInfo* pi = tbl_PluginInfo; do {
-		if( IsOpen(pi->id) ) return true;
-	} while( ++pi, pi->shortname != NULL );
-
-	return false;
+	return IfPlugins([&] (const PluginInfo * pi) {
+		return IsOpen(pi->id);
+	});
 }
 
 const wxString SysCorePlugins::GetName( PluginsEnum_t pid ) const

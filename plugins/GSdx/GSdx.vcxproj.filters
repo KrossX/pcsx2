@@ -239,9 +239,6 @@
     <ClCompile Include="Renderers\SW\GSSetupPrimCodeGenerator.x64.avx2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Renderers\OpenCL\GSRendererCL.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="GSDrawingContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -490,9 +487,6 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Renderers\OpenCL\GSRendererCL.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="GSPng.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -526,9 +520,6 @@
     <None Include="res\shadeboost.fx">
       <Filter>Shaders</Filter>
     </None>
-    <None Include="res\d3d9\tfx.cl">
-      <Filter>Shaders</Filter>
-    </None>
 	<None Include="res\d3d9\fxaa.fx">
       <Filter>Shaders</Filter>
     </None>
@@ -545,9 +536,6 @@
       <Filter>Shaders</Filter>
     </None>
     <None Include="res\d3d9\shadeboost.fx">
-      <Filter>Shaders</Filter>
-    </None>
-    <None Include="res\d3d9\tfx.cl">
       <Filter>Shaders</Filter>
     </None>
     <None Include="res\glsl\common_header.glsl">

@@ -91,7 +91,8 @@ GSLocalMemory::GSLocalMemory()
 		case GSRendererType::DX1011_SW:
 			m_use_fifo_alloc = true;
 			break;
-		default: break;
+		default:
+			break;
 	}
 
 	if (m_use_fifo_alloc)

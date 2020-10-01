@@ -32,6 +32,7 @@
 // PCSX2 expects ASNI, not unicode, so this MUST always be char...
 static char libraryName[256];
 
+int SampleRate = 48000;
 
 static bool IsOpened = false;
 static bool IsInitialized = false;
@@ -279,14 +280,62 @@ CALLBACK SPU2writeDMA7Mem(u16 *pMem, u32 size)
     Cores[1].DoDMAwrite(pMem, size);
 }
 
-EXPORT_C_(void)
+EXPORT_C_(s32)
 SPU2reset()
 {
+    if (SndBuffer::Test() == 0 && SampleRate != 48000)
+    {
+        SampleRate = 48000;
+        SndBuffer::Cleanup();
+
+        try {
+            SndBuffer::Init();
+        }
+        catch (std::exception& ex) {
+            fprintf(stderr, "SPU2-X Error: Could not initialize device, or something.\nReason: %s", ex.what());
+            SPU2close();
+            return -1;
+        }
+    }
+    else
+        SampleRate = 48000;
+
     memset(spu2regs, 0, 0x010000);
     memset(_spu2mem, 0, 0x200000);
     memset(_spu2mem + 0x2800, 7, 0x10); // from BIOS reversal. Locks the voices so they don't run free.
     Cores[0].Init(0);
     Cores[1].Init(1);
+    return 0;
+}
+
+EXPORT_C_(s32)
+SPU2ps1reset()
+{
+    printf("RESET PS1 \n");
+
+    if (SndBuffer::Test() == 0 && SampleRate != 44100)
+    {
+        SampleRate = 44100;
+        SndBuffer::Cleanup();
+
+        try {
+            SndBuffer::Init();
+        }
+        catch (std::exception& ex) {
+            fprintf(stderr, "SPU2-X Error: Could not initialize device, or something.\nReason: %s", ex.what());
+            SPU2close();
+            return -1;
+        }
+    }
+    else
+        SampleRate = 44100;
+
+   /* memset(spu2regs, 0, 0x010000);
+    memset(_spu2mem, 0, 0x200000);
+    memset(_spu2mem + 0x2800, 7, 0x10); // from BIOS reversal. Locks the voices so they don't run free.
+    Cores[0].Init(0);
+    Cores[1].Init(1);*/
+    return 0;
 }
 
 EXPORT_C_(s32)
@@ -627,12 +676,12 @@ SPU2write(u32 rmem, u16 value)
 // returns a non zero value if successful
 // for now, pData is not used
 EXPORT_C_(int)
-SPU2setupRecording(int start, void *pData)
+SPU2setupRecording(int start, std::wstring* filename)
 {
     if (start == 0)
         RecordStop();
     else if (start == 1)
-        RecordStart();
+        RecordStart(filename);
 
     return 0;
 }
