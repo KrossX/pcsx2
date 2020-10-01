@@ -312,8 +312,8 @@ BEGIN
     CONTROL         "Enable HW Hacks",IDC_HACKS_ENABLED,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,260,71,10
     PUSHBUTTON      "Advanced Settings and Hacks",IDC_HACKSBUTTON,104,258,127,14
 	// Direct3D 9 (Hardware) Settings:
-    CONTROL         "Alpha Correction",IDC_FBA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,240,74,10
-    CONTROL         "Logarithmic Z",IDC_LOGZ,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,105,240,90,10
+    CONTROL         "Alpha Correction",IDC_FBA,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,245,74,10
+    CONTROL         "Logarithmic Z",IDC_LOGZ,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,105,245,90,10
     // Software Renderer Settings:
     GROUPBOX        "Software Renderer Settings",IDC_STATIC,6,282,230,44,BS_CENTER
     CONTROL         "Auto Flush",IDC_AUTO_FLUSH_SW,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,11,294,90,10

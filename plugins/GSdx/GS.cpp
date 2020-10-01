@@ -59,7 +59,8 @@ static void (*s_irq)() = NULL;
 static uint8* s_basemem = NULL;
 static int s_vsync = 0;
 static bool s_exclusive = true;
-static std::string s_renderer_name;
+static const char* s_renderer_name = "";
+static const char* s_renderer_type = "";
 bool gsopen_done = false; // crash guard for GSgetTitleInfo2 and GSKeyEvent (replace with lock?)
 
 EXPORT_C_(uint32) PS2EgetLibType()
@@ -331,31 +332,27 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 			s_renderer_name = " D3D9";
 			renderer_fullname = "Direct3D 9";
 			break;
-
 		case GSRendererType::DX1011_HW:
+		case GSRendererType::DX1011_SW:
 			dev = new GSDevice11();
 			s_renderer_name = "D3D11";
-			renderer_name = "Direct3D 11";
+			renderer_fullname = "Direct3D 11";
 			break;
 #endif
 		case GSRendererType::OGL_HW:
-			dev = new GSDeviceOGL();
-			s_renderer_name = "OGL";
-			renderer_name = "OpenGL";
-			break;
 		case GSRendererType::OGL_SW:
 			dev = new GSDeviceOGL();
-			s_renderer_name = "SW";
-			renderer_name = "Software";
+			s_renderer_name = "OGL";
+			renderer_fullname = "OpenGL";
 			break;
 		case GSRendererType::Null:
 			dev = new GSDeviceNull();
 			s_renderer_name = "NULL";
-			renderer_name = "Null";
+			renderer_fullname = "Null";
 			break;
 		}
 
-		printf("Current Renderer: %s\n", renderer_name.c_str());
+		printf("Current Renderer: %s %s\n", renderer_fullname, renderer_mode);
 
 		if (dev == NULL)
 		{
@@ -373,19 +370,23 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 				s_renderer_type = " HW";
 				break;
 			case GSRendererType::DX1011_HW:
+				s_renderer_type = " HW";
 				s_gs = (GSRenderer*)new GSRendererDX11();
 				break;
 #endif
 			case GSRendererType::OGL_HW:
+				s_renderer_type = " HW";
 				s_gs = (GSRenderer*)new GSRendererOGL();
 				break;
 			case GSRendererType::DX9_SW:
 			case GSRendererType::DX1011_SW:
 			case GSRendererType::OGL_SW:
 				s_gs = new GSRendererSW(threads);
+				s_renderer_type = " SW";
 				break;
 			case GSRendererType::Null:
 				s_gs = new GSRendererNull();
+				s_renderer_type = "";
 				break;
 			}
 			if (s_gs == NULL)
@@ -448,9 +449,9 @@ EXPORT_C_(int) GSopen2(void** dsp, uint32 flags)
 	static bool stored_toggle_state = false;
 	const bool toggle_state = !!(flags & 4);
 
-	auto current_renderer = theApp.GetCurrentRendererType();
+	GSRendererType renderer = theApp.GetCurrentRendererType();
 
-	if (current_renderer != GSRendererType::Undefined && stored_toggle_state != toggle_state)
+	if (renderer != GSRendererType::Undefined && stored_toggle_state != toggle_state)
 	{
 #ifdef _WIN32
 		switch (renderer) {
@@ -472,10 +473,11 @@ EXPORT_C_(int) GSopen2(void** dsp, uint32 flags)
 		case GSRendererType::OGL_HW: renderer = GSRendererType::OGL_SW; break;
 		default: renderer = GSRendererType::OGL_SW; break; // fallback to OGL SW
 		}
+#endif
 	}
 	stored_toggle_state = toggle_state;
 
-	int retval = _GSopen(dsp, "", current_renderer);
+	int retval = _GSopen(dsp, "", renderer);
 
 	if (s_gs != NULL)
 		s_gs->SetAspectRatio(0);	 // PCSX2 manages the aspect ratios
@@ -863,7 +865,8 @@ EXPORT_C GSgetLastTag(uint32* tag)
 EXPORT_C GSgetTitleInfo2(char* dest, size_t length)
 {
 	std::string s;
-	s.append(s_renderer_name);
+	s.append(s_renderer_name).append(s_renderer_type);
+
 	// TODO: this gets called from a different thread concurrently with GSOpen (on linux)
 	if (gsopen_done && s_gs != NULL && s_gs->m_GStitleInfoBuffer[0])
 	{

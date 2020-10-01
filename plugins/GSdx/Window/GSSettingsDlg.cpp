@@ -308,7 +308,7 @@ void GSSettingsDlg::UpdateAdapters()
 
 	const GSRendererType renderer = static_cast<GSRendererType>(data);
 	const bool dx9 = renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX9_SW;
-	const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW || renderer == GSRendererType::DX1011_OpenCL;
+	const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW;
 	const bool dxdev = dx9 | dx11;
 
 	EnableWindow(GetDlgItem(m_hWnd, IDC_ADAPTER), dxdev);
@@ -351,8 +351,8 @@ void GSSettingsDlg::UpdateControls()
 		const GSRendererType renderer = static_cast<GSRendererType>(i);
 
 		const bool dx9 = renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX9_SW;
-		const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW || renderer == GSRendererType::DX1011_OpenCL;
-		const bool ogl = renderer == GSRendererType::OGL_HW || renderer == GSRendererType::OGL_SW || renderer == GSRendererType::OGL_OpenCL;
+		const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW;
+		const bool ogl = renderer == GSRendererType::OGL_HW || renderer == GSRendererType::OGL_SW;
 
 		const bool hw =  renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::OGL_HW;
 		const bool sw =  renderer == GSRendererType::DX9_SW || renderer == GSRendererType::DX1011_SW || renderer == GSRendererType::OGL_SW;
@@ -401,6 +401,7 @@ void GSSettingsDlg::UpdateControls()
 		EnableWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_TEXT), hw);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT), ogl ? SW_SHOW : SW_HIDE);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_D3D11), dx11 || null ? SW_SHOW : SW_HIDE);
+		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_TEXT), dx9 ? SW_HIDE : SW_SHOW);
 
 		// Software mode settings
 		EnableWindow(GetDlgItem(m_hWnd, IDC_MIPMAP_SW), sw);
