@@ -6,10 +6,10 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(SvnRootDir)\3rdparty\;$(SvnRootDir)\3rdparty\soundtouch\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SvnRootDir)\3rdparty\;$(SvnRootDir)\3rdparty\soundtouch\;$(SvnRootDir)\3rdparty\xaudio2redist\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(SvnRootDir)\deps\$(Platform)\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SvnRootDir)\deps\$(Platform)\$(Configuration);$(SvnRootDir)\3rdparty\xaudio2redist\release\lib\$(PlatformShortName);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
 </Project>
