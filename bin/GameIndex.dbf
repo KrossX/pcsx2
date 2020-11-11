@@ -2343,6 +2343,7 @@ Serial = SCES-53358
 Name   = 24: The Game
 Region = PAL-M9
 VU0KickstartHack = 1 // Fixes missing geometry.
+vuClampMode = 2 // Fixes minimap HUD.
 ---------------------------------------------
 Serial = SCES-53372
 Name   = Tourist Trophy - The Real Riding Simulator
@@ -6612,7 +6613,7 @@ MemCardFilter = SLAJ-25077/SLPM-55122/SLPM-66307/SLPM-74247/SLAJ-25035/SLPM-6551
 Serial = SLAJ-25078
 Name   = Black
 Region = NTSC-Unk
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
 ---------------------------------------------
 Serial = SLAJ-25079
 Name   = Shin Sangoku Musou 4 - Empires
@@ -6784,6 +6785,7 @@ Region = PAL-E
 Serial = SLED-53937
 Name   = Black [Demo]
 Region = PAL-M5
+vuClampMode = 3 // Fixes SPS
 ---------------------------------------------
 Serial = SLED-53951
 Name   = Honda Demo [Demo]
@@ -15648,7 +15650,15 @@ Serial = SLES-53886
 Name   = Black
 Region = PAL-M5
 Compat = 5
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
+[patches = ADDFF505]
+	author=refraction
+	// COP2 Rearrangement. Fixes broken collisions.
+	patch=1,EE,0037EBD4,word,4b000460
+	patch=1,EE,0037EBD8,word,4af103bc
+	patch=1,EE,0037EBF0,word,4a800460
+	patch=1,EE,0037EBF4,word,4b7103bc
+[/patches]
 ---------------------------------------------
 Serial = SLES-53897
 Name   = Dreamworks Vecinos Invasores
@@ -15955,7 +15965,15 @@ Serial = SLES-54030
 Name   = Black
 Region = PAL-E
 Compat = 5
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
+[patches = CAA04879]
+	author=refraction
+	// COP2 Rearrangement. Fixes broken collisions.
+	patch=1,EE,0037EB54,word,4b000460
+	patch=1,EE,0037EB58,word,4af103bc
+	patch=1,EE,0037EB70,word,4a800460
+	patch=1,EE,0037EB74,word,4b7103bc
+[/patches]
 ---------------------------------------------
 Serial = SLES-54031
 Name   = Da Vinci Code, The
@@ -17287,12 +17305,8 @@ Name   = Star Wars - The Force Unleashed
 Region = PAL-M5
 [patches = 87109051]
 	author=kozarovv
-	// Fixes various graphics glitches.
-	// It's a problem which apply to all games made by Khrome studio.
-	// The EE seems to send invalid data to the GS and expect
-	// some kind of unknown behaviour to operate.
-	// This can be fixed on the GS side but the software render is impossible to fix.
-	// So this patch correct the issue on the EE side.
+	// Fix for graphical issues, QTE events, subtitles, health bar.
+	// Patch replace values passed to FPU to workaround x86 rounding issues.
 	patch=1,EE,0017cb84,word,3464fff0
 	patch=1,EE,0017cb90,word,3463fffc
 [/patches]
@@ -17300,6 +17314,13 @@ Region = PAL-M5
 Serial = SLES-54659
 Name   = Star Wars - The Force Unleashed
 Region = PAL-M4
+[patches = DAF2145C]
+	author=kozarovv
+	// Fix for graphical issues, QTE events, subtitles, health bar.
+	// Patch replace values passed to FPU to workaround x86 rounding issues.
+	patch=1,EE,0017cb84,word,3464fff0
+	patch=1,EE,0017cb90,word,3463fffc
+[/patches]
 ---------------------------------------------
 Serial = SLES-54663
 Name   = Jackass - The Game
@@ -20282,6 +20303,7 @@ Serial = SLPM-62132
 Name   = 24: The Game
 Region = NTSC-J
 VU0KickstartHack = 1 // Fixes missing geometry.
+vuClampMode = 2 // Fixes minimap HUD.
 ---------------------------------------------
 Serial = SLPM-62133
 Name   = Bloody Roar 3 [Konami The Best]
@@ -27334,7 +27356,15 @@ Serial = SLPM-66354
 Name   = Black
 Region = NTSC-J
 Compat = 5
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
+[patches = B3A9F9ED]
+	author=refraction
+	// COP2 Rearrangement. Fixes broken collisions.
+	patch=1,EE,0037ECD4,word,4b000460
+	patch=1,EE,0037ECD8,word,4af103bc
+	patch=1,EE,0037ECF0,word,4a800460
+	patch=1,EE,0037ECF4,word,4b7103bc
+[/patches]
 ---------------------------------------------
 Serial = SLPM-66356
 Name   = Baldr Force EXE [Alchemist Best]
@@ -28739,7 +28769,7 @@ Region = NTSC-J
 Serial = SLPM-66731
 Name   = Black [EA Best Hits]
 Region = NTSC-J
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
 ---------------------------------------------
 Serial = SLPM-66732
 Name   = Iinazuke [Limited Edition]
@@ -29609,7 +29639,7 @@ Region = NTSC-J
 Serial = SLPM-66961
 Name   = Black [EA-SY! 1980]
 Region = NTSC-J
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
 ---------------------------------------------
 Serial = SLPM-66962
 Name   = Burnout 3 - Takedown [EA-SY! 1980]
@@ -34822,6 +34852,13 @@ Region = NTSC-J
 Serial = SLPS-25888
 Name   = Star Wars - The Force Unleashed
 Region = NTSC-J
+[patches = CC9BFDE3]
+	author=kozarovv
+	// Fix for graphical issues, QTE events, subtitles, health bar.
+	// Patch replace values passed to FPU to workaround x86 rounding issues.
+	patch=1,EE,0017d454,word,3464fff0
+	patch=1,EE,0017d460,word,3463fffc
+[/patches]
 ---------------------------------------------
 Serial = SLPS-25889
 Name   = Guitar Hero - Aerosmith
@@ -41402,6 +41439,7 @@ Name   = 24: The Game
 Region = NTSC-U
 Compat = 5
 VU0KickstartHack = 1 // Fixes missing geometry.
+vuClampMode = 2 // Fixes minimap HUD.
 ---------------------------------------------
 Serial = SLUS-21269
 Name   = Bully
@@ -41969,7 +42007,15 @@ Serial = SLUS-21376
 Name   = Black
 Region = NTSC-U
 Compat = 5
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
+[patches = 5C891FF1]
+	author=refraction
+	// COP2 Rearrangement. Fixes broken collisions.
+	patch=1,EE,0037EB14,word,4b000460
+	patch=1,EE,0037EB18,word,4af103bc
+	patch=1,EE,0037EB30,word,4a800460
+	patch=1,EE,0037EB34,word,4b7103bc
+[/patches]
 ---------------------------------------------
 Serial = SLUS-21377
 Name   = Dance Dance Revolution SuperNOVA
@@ -43007,6 +43053,13 @@ Serial = SLUS-21614
 Name   = Star Wars - The Force Unleashed
 Region = NTSC-U
 Compat = 4
+[patches = 879CDA5E]
+	author=kozarovv
+	// Fix for graphical issues, QTE events, subtitles, health bar.
+	// Patch replace values passed to FPU to workaround x86 rounding issues.
+	patch=1,EE,0017cf24,word,3464fff0
+	patch=1,EE,0017cf30,word,3463fffc
+[/patches]
 ---------------------------------------------
 Serial = SLUS-21615
 Name   = Wild ARMs 5
@@ -45193,7 +45246,7 @@ Region = NTSC-U
 Serial = SLUS-29180
 Name   = Black [Demo]
 Region = NTSC-U
-vuClampMode = 0
+vuClampMode = 3 // Fixes SPS
 ---------------------------------------------
 Serial = SLUS-29185
 Name   = Driver - Parallel Lines [Demo]

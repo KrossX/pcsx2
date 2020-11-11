@@ -61,7 +61,6 @@ private:
 	bool OI_MetalSlug6(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
 	bool OI_RozenMaidenGebetGarden(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
 	bool OI_SonicUnleashed(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
-	bool OI_StarWarsForceUnleashed(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
 	bool OI_PointListPalette(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
 	bool OI_SuperManReturns(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
 	bool OI_ArTonelico2(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t);
@@ -157,7 +156,7 @@ protected:
 	float m_userhacks_tcoffset_x;
 	float m_userhacks_tcoffset_y;
 
-	int m_accurate_date;
+	bool m_accurate_date;
 	int m_sw_blending;
 
 	bool m_channel_shuffle;
@@ -175,6 +174,7 @@ public:
 	GSVector2i GetCustomResolution();
 	void SetScaling();
 	void Lines2Sprites();
+	void EmulateAtst(GSVector4& FogColor_AREF, uint8& atst, const bool pass_2);
 	void ConvertSpriteTextureShuffle(bool& write_ba, bool& read_ba);
 	GSVector4 RealignTargetTextureCoordinate(const GSTextureCache::Source* tex);
 	GSVector4i ComputeBoundingBox(const GSVector2& rtscale, const GSVector2i& rtsize);

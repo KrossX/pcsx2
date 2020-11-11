@@ -18,6 +18,7 @@
 #include "Dialogs.h"
 
 #include <xaudio2.h>
+#include <cguid.h>
 #include <atlcomcli.h>
 #include <memory>
 #include <sstream>

@@ -107,7 +107,7 @@ run_cppcheck()
 
     check="--enable=warning,style,missingInclude"
 
-    for d in pcsx2 common plugins/GSdx plugins/spu2\-x plugins/onepad plugins/cdvdGigaherz
+    for d in pcsx2 common plugins/GSdx plugins/onepad
     do
         flat_d=$(echo $d | sed -e 's@/@_@')
         log=cpp_check__${flat_d}.log
@@ -207,11 +207,10 @@ for ARG in "$@"; do
         --sdl12             ) flags="$flags -DSDL2_API=FALSE" ;;
         --extra             ) flags="$flags -DEXTRA_PLUGINS=TRUE" ;;
         --asan              ) flags="$flags -DUSE_ASAN=TRUE" ;;
-        --gtk3              ) flags="$flags -DGTK3_API=TRUE" ;;
+        --gtk2              ) flags="$flags -DGTK2_API=TRUE" ;;
         --lto               ) flags="$flags -DUSE_LTO=TRUE" ;;
         --pgo-optimize      ) flags="$flags -DUSE_PGO_OPTIMIZE=TRUE" ;;
         --pgo-generate      ) flags="$flags -DUSE_PGO_GENERATE=TRUE" ;;
-        --no-dev9ghzdrk     ) flags="$flags -DDISABLE_DEV9GHZDRK=TRUE" ;;
         --no-portaudio      ) flags="$flags -DPORTAUDIO_API=FALSE" ;;
         --no-simd           ) flags="$flags -DDISABLE_ADVANCE_SIMD=TRUE" ;;
         --no-trans          ) flags="$flags -DNO_TRANSLATION=TRUE" ;;
@@ -240,11 +239,10 @@ for ARG in "$@"; do
             echo
             echo "** Distribution Compatibilities **"
             echo "--sdl12         : Build with SDL1.2 (requires if wx is linked against SDL1.2)"
-            echo "--no-dev9ghzdrk : Skip dev9ghzdrk. (Avoids needing escalated privileges to build.)"
             echo "--no-portaudio  : Skip portaudio for spu2x."
             echo
             echo "** Expert Developer option **"
-            echo "--gtk3          : replace GTK2 by GTK3"
+            echo "--gtk2          : use GTK 2 instead of GTK 3"
             echo "--no-cross-multilib: Build a native PCSX2 (nonfunctional recompiler)"
             echo "--no-trans      : Don't regenerate mo files when building."
             echo "--clang         : Build with Clang/llvm"

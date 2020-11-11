@@ -16,6 +16,7 @@
 #include "PrecompiledHeader.h"
 #include "../Global.h"
 #include "Dialogs.h"
+#include "Config.h"
 #include <math.h>
 
 #ifdef PCSX2_DEVBUILD
@@ -153,7 +154,9 @@ void ReadSettings()
 	if (mods[OutputModule] == nullptr)
 	{
 		// Unsupported or legacy module.
-		fwprintf(stderr, L"* SPU2: Unknown output module '%s' specified in configuration file.\n", omodid);
+		Console.Warning("* SPU2: Unknown output module '%s' specified in configuration file.", omodid);
+		Console.Warning("* SPU2: Defaulting to XAudio (%s).", XAudio2Out->GetIdent());
+		OutputModule = FindOutputModuleById(XAudio2Out->GetIdent());
 	}
 }
 

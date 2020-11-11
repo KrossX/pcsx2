@@ -42,11 +42,12 @@ option(BUILD_REPLAY_LOADERS "Build GS replayer to ease testing (developer option
 option(PACKAGE_MODE "Use this option to ease packaging of PCSX2 (developer/distribution option)")
 option(DISABLE_CHEATS_ZIP "Disable including the cheats_ws.zip file")
 option(DISABLE_PCSX2_WRAPPER "Disable including the PCSX2-linux.sh file")
+option(DISABLE_SETCAP "Do not set files capabilities")
 option(XDG_STD "Use XDG standard path instead of the standard PCSX2 path")
 option(EXTRA_PLUGINS "Build various 'extra' plugins")
 option(PORTAUDIO_API "Build portaudio support on spu2x" ON)
 option(SDL2_API "Use SDL2 on spu2x and onepad (wxWidget mustn't be built with SDL1.2 support" ON)
-option(GTK3_API "Use GTK3 api (experimental/wxWidget must be built with GTK3 support)")
+option(GTK2_API "Use GTK2 api (legacy)")
 
 if(PACKAGE_MODE)
     if(NOT DEFINED PLUGIN_DIR)
@@ -101,11 +102,7 @@ endif()
 #-------------------------------------------------------------------------------
 option(BUILTIN_GS           "Disable support of GS plugin (developer option)")
 option(BUILTIN_PAD          "Disable support of PAD plugin (developer option)")
-option(BUILTIN_SPU2         "Disable support of SPU2 plugin (developer option)")
 option(BUILTIN_USB          "Disable support of USB plugin (developer option)")
-option(BUILTIN_FW           "Disable support of FW plugin (developer option)")
-option(BUILTIN_DEV9         "Disable support of DEV9 plugin (developer option)")
-option(BUILTIN_CDVD         "Disable support of CDVD plugin (developer option)")
 
 set(PLUGIN_SUPPORT "")
 if(BUILTIN_GS)
@@ -114,20 +111,8 @@ endif()
 if(BUILTIN_PAD)
     set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_PAD_PLUGIN")
 endif()
-if(BUILTIN_SPU2)
-    set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_SPU2_PLUGIN")
-endif()
 if(BUILTIN_USB)
     set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_USB_PLUGIN")
-endif()
-if(BUILTIN_FW)
-    set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_FW_PLUGIN")
-endif()
-if(BUILTIN_DEV)
-    set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_DEV_PLUGIN")
-endif()
-if(BUILTIN_CDVD)
-    set(PLUGIN_SUPPORT "${PLUGIN_SUPPORT} -DBUILTIN_CDVD_PLUGIN")
 endif()
 
 #-------------------------------------------------------------------------------
@@ -433,16 +418,6 @@ if(DEFINED USER_CMAKE_CXX_FLAGS)
 endif()
 # Use some default machine flags
 string(STRIP "${CMAKE_CXX_FLAGS} ${DEFAULT_CPP_FLAG}" CMAKE_CXX_FLAGS)
-
-#-------------------------------------------------------------------------------
-# Too much user/packager use experimental flags as release flags
-#-------------------------------------------------------------------------------
-if(CMAKE_BUILD_TYPE MATCHES "Release" OR PACKAGE_MODE)
-    if (GTK3_API)
-        message(WARNING "GTK3 is highly experimental besides it requires a wxWidget built with __WXGTK3__ support !!!")
-    endif()
-endif()
-
 
 #-------------------------------------------------------------------------------
 # MacOS-specific things

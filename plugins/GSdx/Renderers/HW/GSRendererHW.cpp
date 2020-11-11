@@ -42,7 +42,7 @@ GSRendererHW::GSRendererHW(GSTextureCache* tc)
 	m_mipmap = theApp.GetConfigI("mipmap_hw");
 	m_upscale_multiplier = theApp.GetConfigI("upscale_multiplier");
 	m_large_framebuffer  = theApp.GetConfigB("large_framebuffer");
-	m_accurate_date = theApp.GetConfigI("accurate_date");
+	m_accurate_date = theApp.GetConfigB("accurate_date");
 
 	if (theApp.GetConfigB("UserHacks")) {
 		m_userhacks_enabled_gs_mem_clear = !theApp.GetConfigB("UserHacks_Disable_Safe_Features");
@@ -435,6 +435,52 @@ void GSRendererHW::Lines2Sprites()
 
 		m_vertex.head = m_vertex.tail = m_vertex.next = count * 2;
 		m_index.tail = count * 3;
+	}
+}
+
+void GSRendererHW::EmulateAtst(GSVector4& FogColor_AREF, uint8& ps_atst, const bool pass_2)
+{
+	static const uint32 inverted_atst[] = {ATST_ALWAYS, ATST_NEVER, ATST_GEQUAL, ATST_GREATER, ATST_NOTEQUAL, ATST_LESS, ATST_LEQUAL, ATST_EQUAL};
+
+	if (!m_context->TEST.ATE)
+		return;
+
+	// Check for pass 2, otherwise do pass 1.
+	const int atst = pass_2 ? inverted_atst[m_context->TEST.ATST] : m_context->TEST.ATST;
+
+	switch (atst)
+	{
+		case ATST_LESS:
+			FogColor_AREF.a = (float)m_context->TEST.AREF - 0.1f;
+			ps_atst = 1;
+			break;
+		case ATST_LEQUAL:
+			FogColor_AREF.a = (float)m_context->TEST.AREF - 0.1f + 1.0f;
+			ps_atst = 1;
+			break;
+		case ATST_GEQUAL:
+			// Maybe a -1 trick multiplication factor could be used to merge with ATST_LEQUAL case
+			FogColor_AREF.a = (float)m_context->TEST.AREF - 0.1f;
+			ps_atst = 2;
+			break;
+		case ATST_GREATER:
+			// Maybe a -1 trick multiplication factor could be used to merge with ATST_LESS case
+			FogColor_AREF.a = (float)m_context->TEST.AREF - 0.1f + 1.0f;
+			ps_atst = 2;
+			break;
+		case ATST_EQUAL:
+			FogColor_AREF.a = (float)m_context->TEST.AREF;
+			ps_atst = 3;
+			break;
+		case ATST_NOTEQUAL:
+			FogColor_AREF.a = (float)m_context->TEST.AREF;
+			ps_atst = 4;
+			break;
+		case ATST_NEVER: // Draw won't be done so no need to implement it in shader
+		case ATST_ALWAYS:
+		default:
+			ps_atst = 0;
+			break;
 	}
 }
 
@@ -1557,7 +1603,6 @@ GSRendererHW::Hacks::Hacks()
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::MetalSlug6, CRC::RegionCount, &GSRendererHW::OI_MetalSlug6));
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::RozenMaidenGebetGarden, CRC::RegionCount, &GSRendererHW::OI_RozenMaidenGebetGarden));
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::SonicUnleashed, CRC::RegionCount, &GSRendererHW::OI_SonicUnleashed));
-	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::StarWarsForceUnleashed, CRC::RegionCount, &GSRendererHW::OI_StarWarsForceUnleashed));
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::SuperManReturns, CRC::RegionCount, &GSRendererHW::OI_SuperManReturns));
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::ArTonelico2, CRC::RegionCount, &GSRendererHW::OI_ArTonelico2));
 	m_oi_list.push_back(HackEntry<OI_Ptr>(CRC::Jak2, CRC::RegionCount, &GSRendererHW::OI_JakGames));
@@ -2029,25 +2074,6 @@ bool GSRendererHW::OI_SonicUnleashed(GSTexture* rt, GSTexture* ds, GSTextureCach
 	m_dev->StretchRect(src->m_texture, sRect, rt, dRect, true, true, true, false);
 
 	return false;
-}
-
-bool GSRendererHW::OI_StarWarsForceUnleashed(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t)
-{
-	uint32 FBP = m_context->FRAME.Block();
-	uint32 FPSM = m_context->FRAME.PSM;
-
-	if(PRIM->TME)
-	{
-		if((FBP == 0x0 || FBP == 0x01180) && FPSM == PSM_PSMCT32 && (m_vt.m_eq.z && m_vt.m_max.p.z == 0))
-		{
-			GL_INS("OI_StarWarsForceUnleashed FB clear");
-			if(ds)
-				ds->Commit(); // Don't bother to save few MB for a single game
-			m_dev->ClearDepth(ds);
-		}
-	}
-
-	return true;
 }
 
 bool GSRendererHW::OI_PointListPalette(GSTexture* rt, GSTexture* ds, GSTextureCache::Source* t)
