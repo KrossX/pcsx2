@@ -423,7 +423,19 @@ void MainEmuFrame::_DoBootCdvd()
 			return;
 		}
 	}
+	
+	if (!g_Conf->EmuOptions.FullBootConfig && g_Conf->EmuOptions.UseBOOT2Injection)
+	{
+		g_Conf->EmuOptions.UseBOOT2Injection = false;
+		g_Conf->EmuOptions.FullBootConfig = true;
 
+		wxString message;
+		message.Printf(_("For the first run of this version of the emulator, you will be forced to boot to your BIOS. You are required to configure the BIOS language before proceeding. Once this has been done you can Fast Boot normally."));
+		Msgbox::Alert(message, _("BIOS Configuration"));
+	}
+	else
+		g_Conf->EmuOptions.FullBootConfig = true;
+	
 	sApp.SysExecute(g_Conf->CdvdSource);
 }
 
@@ -944,7 +956,7 @@ void MainEmuFrame::Menu_Capture_Screenshot_Screenshot_As_Click(wxCommandEvent &e
 	wxFileDialog fileDialog(this, _("Select a file"), g_Conf->Folders.Snapshots.ToAscii(), wxEmptyString, "PNG files (*.png)|*.png", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
 
 	if (fileDialog.ShowModal() == wxID_OK)
-		GSmakeSnapshot(fileDialog.GetPath());
+		GSmakeSnapshot(fileDialog.GetPath().c_str());
 
 	// Resume emulation
 	if (!wasPaused)

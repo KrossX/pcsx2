@@ -280,7 +280,7 @@ namespace usb_pad
 				{
 					ret = s->pad->TokenIn(data, p->iov.size);
 					if (ret > 0)
-						usb_packet_copy(p, data, MIN(ret, sizeof(data)));
+						usb_packet_copy(p, data, MIN((unsigned long)ret, sizeof(data)));
 					else
 						p->status = ret;
 				}
@@ -389,7 +389,9 @@ namespace usb_pad
 	{
 		std::string varApi;
 #ifdef _WIN32
-		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, str_to_wstr(varApi));
+		std::wstring tmp;
+		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, tmp);
+		varApi = wstr_to_str(tmp);
 #else
 		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
 #endif
@@ -404,7 +406,9 @@ namespace usb_pad
 
 
 #ifdef _WIN32
-		if (!LoadSetting(nullptr, port, usb_mic::SingstarDevice::TypeName(), N_DEVICE_API, str_to_wstr(api)))
+		if (!LoadSetting(nullptr, port, usb_mic::SingstarDevice::TypeName(), N_DEVICE_API, tmp))
+			return nullptr;
+		api = wstr_to_str(tmp);	
 #else
 		if (!LoadSetting(nullptr, port, usb_mic::SingstarDevice::TypeName(), N_DEVICE_API, api))
 #endif

@@ -22,6 +22,7 @@
 #-------------------------------------------------------------------------------
 option(DISABLE_BUILD_DATE "Disable including the binary compile date")
 option(ENABLE_TESTS "Enables building the unit tests" ON)
+option(USE_SYSTEM_YAML "Uses a system version of yaml, if found")
 
 if(DISABLE_BUILD_DATE OR openSUSE)
     message(STATUS "Disabling the inclusion of the binary compile date.")
@@ -285,10 +286,24 @@ endif()
 # -Wno-unused-function: warn for function not used in release build
 # -Wno-unused-value: lots of warning for this kind of statements "0 && ...". There are used to disable some parts of code in release/dev build.
 # -Wno-overloaded-virtual: Gives a fair number of warnings under clang over in the wxwidget gui section of the code.
-set(DEFAULT_WARNINGS "-Wall -Wextra -Wno-attributes -Wno-unused-function -Wno-unused-parameter -Wno-missing-field-initializers -Wno-overloaded-virtual")
+# -Wno-deprecated-declarations: The USB plugins dialogs are written in straight gtk 2, which gives a million deprecated warnings. Suppress them until we can deal with them.
+# -Wno-format*: Yeah, these need to be taken care of, but...
+# -Wno-stringop-truncation: Who comes up with these compiler warnings, anyways?
+# -Wno-stringop-overflow: Probably the same people as this one...
+
+set(DEFAULT_WARNINGS "-Wall -Wextra -Wno-attributes -Wno-unused-function -Wno-unused-parameter -Wno-missing-field-initializers -Wno-deprecated-declarations -Wno-format -Wno-format-security -Wno-overloaded-virtual")
 if (NOT USE_ICC)
     set(DEFAULT_WARNINGS "${DEFAULT_WARNINGS} -Wno-unused-value ")
 endif()
+
+if (USE_CLANG)
+    set(DEFAULT_WARNINGS "${DEFAULT_WARNINGS} -Wno-overloaded-virtual ")
+endif()
+
+if (USE_GCC)
+set(DEFAULT_WARNINGS "${DEFAULT_WARNINGS}  -Wno-stringop-truncation  -Wno-stringop-overflow ")
+endif()
+
 
 # -Wstrict-aliasing=n: to fix one day aliasing issue. n=1/2/3
 if (USE_ICC)
@@ -374,7 +389,8 @@ if(USE_CLANG)
 endif()
 
 # Note: -DGTK_DISABLE_DEPRECATED can be used to test a build without gtk deprecated feature. It could be useful to port to a newer API
-set(DEFAULT_GCC_FLAG "${ARCH_FLAG} ${COMMON_FLAG} ${DEFAULT_WARNINGS} ${AGGRESSIVE_WARNING} ${HARDENING_FLAG} ${DEBUG_FLAG} ${ASAN_FLAG} ${OPTIMIZATION_FLAG} ${LTO_FLAGS} ${PGO_FLAGS} ${PLUGIN_SUPPORT}")
+# Disabling the hardening flags for the moment, as they spam quite a bit. ${HARDENING_FLAG}
+set(DEFAULT_GCC_FLAG "${ARCH_FLAG} ${COMMON_FLAG} ${DEFAULT_WARNINGS} ${AGGRESSIVE_WARNING} ${DEBUG_FLAG} ${ASAN_FLAG} ${OPTIMIZATION_FLAG} ${LTO_FLAGS} ${PGO_FLAGS} ${PLUGIN_SUPPORT}")
 # c++ only flags
 set(DEFAULT_CPP_FLAG "${DEFAULT_GCC_FLAG} -Wno-invalid-offsetof")
 
@@ -424,6 +440,13 @@ string(STRIP "${CMAKE_CXX_FLAGS} ${DEFAULT_CPP_FLAG}" CMAKE_CXX_FLAGS)
 #-------------------------------------------------------------------------------
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.9)
+
+if (APPLE AND ${CMAKE_OSX_DEPLOYMENT_TARGET} VERSION_LESS 10.14)
+    # Older versions of the macOS stdlib don't have operator new(size_t, align_val_t)
+    # Disable use of them with this flag
+    # Not great, but also no worse that what we were getting before we turned on C++17
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-aligned-allocation")
+endif()
 
 # CMake defaults the suffix for modules to .so on macOS but wx tells us that the
 # extension is .dylib (so that's what we search for)

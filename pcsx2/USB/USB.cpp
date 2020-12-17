@@ -69,7 +69,7 @@ s64 remaining = 0;
 
 #if _WIN32
 HWND gsWnd = nullptr;
-#else
+#elif defined(__linux__)
 #include "gtk.h"
 #include <gdk/gdkx.h>
 #include <X11/X.h>
@@ -253,7 +253,7 @@ s32 USBopen(void* pDsp)
 	}
 	gsWnd = hWnd;
 	pDsp = gsWnd;
-#else
+#elif defined(__linux__)
 
 	g_GSdsp = (Display*)((uptr*)pDsp)[0];
 	g_GSwin = (Window)((uptr*)pDsp)[1];
@@ -361,7 +361,7 @@ s32 USBfreeze(int mode, freezeData* data)
 
 		s8* ptr = data->data + sizeof(USBfreezeData);
 		// Load the state of the attached devices
-		if (data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
+		if ((long unsigned int)data->size != sizeof(USBfreezeData) + usbd.device[0].size + usbd.device[1].size + 8192)
 			return -1;
 
 		//TODO Subsequent save state loadings make USB "stall" for n seconds since previous load
@@ -621,7 +621,7 @@ void USBasync(u32 cycles)
 int cpu_physical_memory_rw(u32 addr, u8* buf, size_t len, int is_write)
 {
 	// invalid address, reset and try again
-	if (addr + len >= 0x200000)
+	if ((u64)addr + len >= 0x200000)
 	{
 		if (qemu_ohci)
 			ohci_soft_reset(qemu_ohci);

@@ -168,7 +168,7 @@ void SaveConfig()
 #ifdef _WIN32
 	bool ret = ciniFile.Save(IniPath);
 #else
-	bool ret = ciniFile.Save(str_to_wstr(IniPath));
+	[[maybe_unused]]bool ret = ciniFile.Save(str_to_wstr(IniPath));
 #endif
 }
 
@@ -205,7 +205,8 @@ void LoadConfig()
 	{
 		std::string api;
 #ifdef _WIN32
-		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, str_to_wstr(api));
+		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, tmp);
+		api = wstr_to_str(tmp);
 #else
 		LoadSetting(nullptr, i, conf.Port[i], N_DEVICE_API, api);
 #endif

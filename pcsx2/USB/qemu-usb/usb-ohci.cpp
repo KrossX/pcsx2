@@ -61,8 +61,7 @@ static inline void ohci_intr_update(OHCIState* ohci)
 	if (level)
 	{
 
-		//if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
-		if (ohci->intr_status != OHCI_INTR_WD) //HACK skip first intr with _WD, _SF should follow shortly
+		if ((get_clock() - last_cycle) > MIN_IRQ_INTERVAL)
 		{
 			usbIrq(1);
 			last_cycle = get_clock();
@@ -276,14 +275,13 @@ static void ohci_stop_endpoints(OHCIState* ohci)
 static void ohci_roothub_reset(OHCIState* ohci)
 {
 	OHCIPort* port;
-	int i;
 
 	ohci_bus_stop(ohci);
 	ohci->rhdesc_a = OHCI_RHA_NPS | ohci->num_ports;
 	ohci->rhdesc_b = 0x0; /* Impl. specific */
 	ohci->rhstatus = 0;
 
-	for (i = 0; i < ohci->num_ports; i++)
+	for (uint32_t i = 0; i < ohci->num_ports; i++)
 	{
 		port = &ohci->rhport[i];
 		port->ctrl = 0;
@@ -504,7 +502,7 @@ static int ohci_service_iso_td(OHCIState* ohci, struct ohci_ed* ed,
 {
 	int dir;
 	uint32_t len = 0;
-	const char* str = NULL;
+	[[maybe_unused]] const char* str = NULL;
 	int pid;
 	int ret;
 	int i;
@@ -730,7 +728,7 @@ static int ohci_service_iso_td(OHCIState* ohci, struct ohci_ed* ed,
 					OHCI_CC_NOERROR);
 		OHCI_SET_BM(iso_td.offset[relative_frame_number], TD_PSW_SIZE, ret);
 	}
-	else if (dir == OHCI_TD_DIR_OUT && ret == len)
+	else if (dir == OHCI_TD_DIR_OUT && (ret == (int)len))
 	{
 		/* OUT transfer succeeded */
 		OHCI_SET_BM(iso_td.offset[relative_frame_number], TD_PSW_CC,
@@ -807,7 +805,7 @@ static int ohci_service_td(OHCIState* ohci, struct ohci_ed* ed)
 {
 	int dir;
 	uint32_t len = 0, pktlen = 0;
-	const char* str = NULL;
+	[[maybe_unused]]const char* str = NULL;
 	int pid;
 	int ret;
 	int i;
@@ -973,10 +971,10 @@ static int ohci_service_td(OHCIState* ohci, struct ohci_ed* ed)
 	}
 
 	/* Writeback */
-	if (ret == pktlen || (dir == OHCI_TD_DIR_IN && ret >= 0 && flag_r))
+	if (ret == (int)pktlen || (dir == OHCI_TD_DIR_IN && ret >= 0 && flag_r))
 	{
 		/* Transmission succeeded.  */
-		if (ret == len)
+		if (ret == (int)len)
 		{
 			td.cbp = 0;
 		}
@@ -996,7 +994,7 @@ static int ohci_service_td(OHCIState* ohci, struct ohci_ed* ed)
 		OHCI_SET_BM(td.flags, TD_CC, OHCI_CC_NOERROR);
 		OHCI_SET_BM(td.flags, TD_EC, 0);
 
-		if ((dir != OHCI_TD_DIR_IN) && (ret != len))
+		if ((dir != OHCI_TD_DIR_IN) && (ret != (int)len))
 		{
 			/* Partial packet transfer: TD not ready to retire yet */
 			goto exit_no_retire;
@@ -1717,8 +1715,6 @@ static USBPortOps ohci_port_ops = {
 	/*.wakeup =*/ohci_wakeup,
 	/*.complete =*/ohci_async_complete_packet,
 };
-
-static USBBusOps ohci_bus_ops = {};
 
 OHCIState* ohci_create(uint32_t base, int ports)
 {

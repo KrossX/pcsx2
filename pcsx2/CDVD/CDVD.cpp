@@ -29,7 +29,6 @@
 #include "GS.h" // for gsVideoMode
 #include "Elfheader.h"
 #include "ps2/BiosTools.h"
-#include "GameDatabase.h"
 
 // This typically reflects the Sony-assigned serial code for the Disc, if one exists.
 //  (examples:  SLUS-2113, etc).
@@ -157,16 +156,19 @@ static void cdvdNVM(u8* buffer, int offset, size_t bytes, bool read)
 		if (!fp.IsOpened())
 			throw Exception::CannotCreateStream(fname);
 
-		u8 zero[1024] = {0};
+		u8 zero[1024] = { 0 };
 		fp.Write(zero, sizeof(zero));
 
-		//Write NVM ILink area with dummy data (Age of Empires 2)
+		// Write NVM ILink area with dummy data (Age of Empires 2)
+		// Also write language data defaulting to English (Guitar Hero 2)
 
 		NVMLayout* nvmLayout = getNvmLayout();
-		u8 ILinkID_Data[8] = {0x00, 0xAC, 0xFF, 0xFF, 0xFF, 0xFF, 0xB9, 0x86};
+		u8 ILinkID_Data[8] =  { 0x00, 0xAC, 0xFF, 0xFF, 0xFF, 0xFF, 0xB9, 0x86 };
 
 		fp.Seek(*(s32*)(((u8*)nvmLayout) + offsetof(NVMLayout, ilinkId)));
 		fp.Write(ILinkID_Data, sizeof(ILinkID_Data));
+
+		g_SkipBiosHack = false;
 	}
 
 	wxFFile fp(fname, L"r+b");
@@ -257,6 +259,11 @@ static void cdvdReadMAC(u8* num)
 static void cdvdWriteMAC(const u8* num)
 {
 	setNvmData(num, 0, 8, offsetof(NVMLayout, mac));
+}
+
+void cdvdReadLanguageParams(u8* config)
+{
+	getNvmData(config, 0xF, 16, offsetof(NVMLayout, config1));
 }
 
 s32 cdvdReadConfig(u8* config)
@@ -592,7 +599,35 @@ static s32 cdvdReadDvdDualInfo(s32* dualType, u32* layer1Start)
 
 static uint cdvdBlockReadTime(CDVD_MODE_TYPE mode)
 {
-	return (PSXCLK * cdvd.BlockSize) / (((mode == MODE_CDROM) ? PSX_CD_READSPEED : PSX_DVD_READSPEED) * cdvd.Speed);
+	int numSectors = 0;
+	int offset = 0;
+	// Sector counts are taken from google for Single layer, Dual layer DVD's and for 700MB CD's
+	switch (cdvd.Type)
+	{
+		case CDVD_TYPE_DETCTDVDS:
+		case CDVD_TYPE_PS2DVD:
+			numSectors = 2298496;
+			break;
+		case CDVD_TYPE_DETCTDVDD:
+			numSectors = 4173824 / 2; // Total sectors for both layers, assume half per layer
+			u32 layer1Start;
+			s32 dualType;
+
+			// Layer 1 needs an offset as it goes back to the middle of the disc
+			cdvdReadDvdDualInfo(&dualType, &layer1Start);
+			if (cdvd.Sector >= layer1Start)
+				offset = layer1Start;
+			break;
+		default: // Pretty much every CD format
+			numSectors = 360000;
+			break;
+	}
+	// Read speed is roughly 37% at lowest and full speed on outer edge. I imagine it's more logarithmic than this
+	// Required for Shadowman to work
+	// Use SeekToSector as Sector hasn't been updated yet
+	const float sectorSpeed = (((float)(cdvd.SeekToSector-offset) / numSectors) * 0.63f) + 0.37f; 
+	//DevCon.Warning("Read speed %f sector %d\n", sectorSpeed, cdvd.Sector);
+	return ((PSXCLK * cdvd.BlockSize) / ((float)(((mode == MODE_CDROM) ? PSX_CD_READSPEED : PSX_DVD_READSPEED) * cdvd.Speed) * sectorSpeed));
 }
 
 void cdvdReset()

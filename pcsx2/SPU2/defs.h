@@ -189,7 +189,6 @@ struct V_Voice
 	s32 SCurrent;
 
 	// it takes a few ticks for voices to start on the real SPU2?
-	void QueueStart();
 	bool Start();
 	void Stop();
 };
@@ -437,6 +436,9 @@ struct V_Core
 
 	// old dma only
 	u16* DMAPtr;
+	u16* DMARPtr; // Mem pointer for DMA Reads
+	u32 ReadSize;
+	bool IsDMARead;
 	u32 MADR;
 	u32 TADR;
 
@@ -525,6 +527,7 @@ struct V_Core
 	// old dma only
 	void DoDMAwrite(u16* pMem, u32 size);
 	void DoDMAread(u16* pMem, u32 size);
+	void FinishDMAread();
 
 	void AutoDMAReadBuffer(int mode);
 	void StartADMAWrite(u16* pMem, u32 sz);

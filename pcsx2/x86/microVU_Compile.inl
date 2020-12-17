@@ -491,8 +491,6 @@ void* mVUcompileSingleInstruction(microVU& mVU, u32 startPC, uptr pState, microF
 	mVUsetFlags(mVU, mFC);           // Sets Up Flag instances
 	mVUoptimizePipeState(mVU);       // Optimize the End Pipeline State for nicer Block Linking
 	mVUdebugPrintBlocks(mVU, false); // Prints Start/End PC of blocks executed, for debugging...
-	
-	mVUtestCycles(mVU, mFC);              // Update VU Cycles and Exit Early if Necessary
 
 	// Second Pass
 	iPC = startPC / 4;
@@ -567,13 +565,18 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 		}
 
 		if ((curI & _Mbit_) && isVU0) {
-			incPC(-2);
-			if (!(curI & _Mbit_)) { //If the last instruction was also M-Bit we don't need to sync again
-				incPC(2);
-				mVUup.mBit = true;
+			if (xPC > 0)
+			{
+				incPC(-2);
+				if (!(curI & _Mbit_)) { //If the last instruction was also M-Bit we don't need to sync again
+					incPC(2);
+					mVUup.mBit = true;
+				}
+				else
+					incPC(2);
 			}
 			else
-				incPC(2);
+				mVUup.mBit = true;
 		}
 
 		if (curI & _Ibit_) {
@@ -677,6 +680,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 				mVUsetupRange(mVU, xPC, false);
 				incPC(2);
 				mVUendProgram(mVU, &mFC, 0);
+				normBranchCompile(mVU, xPC);
 				incPC(-2);
 				goto perf_and_return;
 			}
@@ -773,6 +777,7 @@ _mVUt void* __fastcall mVUcompileJIT(u32 startPC, uptr ptr) {
 	if (doJumpAsSameProgram) { // Treat jump as part of same microProgram
 		return mVUblockFetch(mVUx, startPC, ptr);
 	}
+	mVUx.regs().start_pc = startPC;
 	if (doJumpCaching) { // When doJumpCaching, ptr is a microBlock pointer
 		microVU& mVU = mVUx;
 		microBlock* pBlock = (microBlock*)ptr;

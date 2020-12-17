@@ -355,7 +355,7 @@ void GSSettingsDlg::UpdateControls()
 		const bool sw =  renderer == GSRendererType::DX9_SW || renderer == GSRendererType::DX1011_SW || renderer == GSRendererType::OGL_SW;
 		const bool null = renderer == GSRendererType::Null;
 
-		const int sw_threads = SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_GETPOS, 0, 0);
+		const int sw_threads = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_GETPOS, 0, 0);
 		SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_SETPOS, 0, MAKELPARAM(sw_threads, 0));
 
 		ShowWindow(GetDlgItem(m_hWnd, IDC_LOGO9), dx9 ? SW_SHOW : SW_HIDE);
@@ -388,8 +388,8 @@ void GSSettingsDlg::UpdateControls()
 		INT_PTR filter;
 		if (ComboBoxGetSelData(IDC_FILTER, filter))
 		{
-			EnableWindow(GetDlgItem(m_hWnd, IDC_AFCOMBO), hw && filter && (ogl || !IsDlgButtonChecked(m_hWnd, IDC_PALTEX)));
-			EnableWindow(GetDlgItem(m_hWnd, IDC_AFCOMBO_TEXT), hw && filter && (ogl || !IsDlgButtonChecked(m_hWnd, IDC_PALTEX)));
+			EnableWindow(GetDlgItem(m_hWnd, IDC_AFCOMBO), hw && filter && !IsDlgButtonChecked(m_hWnd, IDC_PALTEX));
+			EnableWindow(GetDlgItem(m_hWnd, IDC_AFCOMBO_TEXT), hw && filter && !IsDlgButtonChecked(m_hWnd, IDC_PALTEX));
 		}
 		EnableWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_DATE), hw);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT), hw);
@@ -504,7 +504,7 @@ bool GSShaderDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = {0};
 
-			m_saturation = SendMessage(GetDlgItem(m_hWnd, IDC_SATURATION_SLIDER),TBM_GETPOS,0,0);
+			m_saturation = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SATURATION_SLIDER),TBM_GETPOS,0,0);
 
 			sprintf(text, "%d", m_saturation);
 			SetDlgItemText(m_hWnd, IDC_SATURATION_VALUE, text);
@@ -513,7 +513,7 @@ bool GSShaderDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = {0};
 
-			m_brightness = SendMessage(GetDlgItem(m_hWnd, IDC_BRIGHTNESS_SLIDER),TBM_GETPOS,0,0);
+			m_brightness = (int)SendMessage(GetDlgItem(m_hWnd, IDC_BRIGHTNESS_SLIDER),TBM_GETPOS,0,0);
 
 			sprintf(text, "%d", m_brightness);
 			SetDlgItemText(m_hWnd, IDC_BRIGHTNESS_VALUE, text);
@@ -522,7 +522,7 @@ bool GSShaderDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = {0};
 
-			m_contrast = SendMessage(GetDlgItem(m_hWnd, IDC_CONTRAST_SLIDER),TBM_GETPOS,0,0);
+			m_contrast = (int)SendMessage(GetDlgItem(m_hWnd, IDC_CONTRAST_SLIDER),TBM_GETPOS,0,0);
 
 			sprintf(text, "%d", m_contrast);
 			SetDlgItemText(m_hWnd, IDC_CONTRAST_VALUE, text);
@@ -761,8 +761,8 @@ void GSHacksDlg::OnInit()
 
 void GSHacksDlg::UpdateControls()
 {
-	int skipdraw_offset = SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWOFFSET), UDM_GETPOS, 0, 0);
-	int skipdraw = SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWHACK), UDM_GETPOS, 0, 0);
+	int skipdraw_offset = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWOFFSET), UDM_GETPOS, 0, 0);
+	int skipdraw = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWHACK), UDM_GETPOS, 0, 0);
 
 	const bool skipdraw_offset_changed = skipdraw_offset != m_old_skipdraw_offset;
 	const bool skipdraw_changed = skipdraw != m_old_skipdraw;
@@ -782,8 +782,8 @@ void GSHacksDlg::UpdateControls()
 		skipdraw_offset = 1;
 	}
 
-	const int tc_offset_x = SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETX), UDM_GETPOS, 0, 0);
-	const int tc_offset_y = SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_GETPOS, 0, 0);
+	const int tc_offset_x = (int)SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETX), UDM_GETPOS, 0, 0);
+	const int tc_offset_y = (int)SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_GETPOS, 0, 0);
 	SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETX), UDM_SETPOS, 0, MAKELPARAM(tc_offset_x, 0));
 	SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_SETPOS, 0, MAKELPARAM(tc_offset_y, 0));
 	SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWOFFSET), UDM_SETPOS, 0, MAKELPARAM(skipdraw_offset, 0));
@@ -844,8 +844,8 @@ bool GSHacksDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 			// It's more user friendly to lower the skipdraw offset value here - it prevents the skipdraw offset
 			// value from decreasing unnecessarily if the user types a skipdraw value that is temporarily lower
 			// than the skipdraw offset value.
-			const int skipdraw_offset = SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWOFFSET), UDM_GETPOS, 0, 0);
-			const int skipdraw = SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWHACK), UDM_GETPOS, 0, 0);
+			const int skipdraw_offset = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWOFFSET), UDM_GETPOS, 0, 0);
+			const int skipdraw = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SKIPDRAWHACK), UDM_GETPOS, 0, 0);
 			theApp.SetConfig("UserHacks_SkipDraw_Offset", std::min(skipdraw_offset, skipdraw));
 			theApp.SetConfig("UserHacks_SkipDraw", skipdraw);
 
@@ -860,8 +860,8 @@ bool GSHacksDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 			theApp.SetConfig("UserHacks_Disable_Safe_Features", (int)IsDlgButtonChecked(m_hWnd, IDC_SAFE_FEATURES));
 			theApp.SetConfig("wrap_gs_mem", (int)IsDlgButtonChecked(m_hWnd, IDC_MEMORY_WRAPPING));
 			theApp.SetConfig("UserHacks_merge_pp_sprite", (int)IsDlgButtonChecked(m_hWnd, IDC_MERGE_PP_SPRITE));
-			theApp.SetConfig("UserHacks_TCOffsetX", SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETX), UDM_GETPOS, 0, 0));
-			theApp.SetConfig("UserHacks_TCOffsetY", SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_GETPOS, 0, 0));
+			theApp.SetConfig("UserHacks_TCOffsetX", (int)SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETX), UDM_GETPOS, 0, 0));
+			theApp.SetConfig("UserHacks_TCOffsetY", (int)SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_GETPOS, 0, 0));
 
 			EndDialog(m_hWnd, id);
 		} break;
@@ -942,9 +942,9 @@ void GSOSDDlg::UpdateControls()
 	const bool monitor_enabled = IsDlgButtonChecked(m_hWnd, IDC_OSD_MONITOR) == BST_CHECKED;
 	const bool log_enabled = IsDlgButtonChecked(m_hWnd, IDC_OSD_LOG) == BST_CHECKED;
 
-	const int osd_size = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_SIZE), UDM_GETPOS, 0, 0);
-	const int osd_timeout = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_TIMEOUT), UDM_GETPOS, 0, 0);
-	const int osd_max_log = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_MAX_LOG), UDM_GETPOS, 0, 0);
+	const int osd_size = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_SIZE), UDM_GETPOS, 0, 0);
+	const int osd_timeout = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_TIMEOUT), UDM_GETPOS, 0, 0);
+	const int osd_max_log = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_MAX_LOG), UDM_GETPOS, 0, 0);
 	SendMessage(GetDlgItem(m_hWnd, IDC_OSD_SIZE), UDM_SETPOS, 0, MAKELPARAM(osd_size, 0));
 	SendMessage(GetDlgItem(m_hWnd, IDC_OSD_TIMEOUT), UDM_SETPOS, 0, MAKELPARAM(osd_timeout, 0));
 	SendMessage(GetDlgItem(m_hWnd, IDC_OSD_MAX_LOG), UDM_SETPOS, 0, MAKELPARAM(osd_max_log, 0));
@@ -985,7 +985,7 @@ bool GSOSDDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = { 0 };
 
-			m_color.a = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_OPACITY_SLIDER), TBM_GETPOS, 0, 0);
+			m_color.a = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_OPACITY_SLIDER), TBM_GETPOS, 0, 0);
 
 			sprintf(text, "%d", m_color.a);
 			SetDlgItemText(m_hWnd, IDC_OSD_OPACITY_AMOUNT, text);
@@ -994,7 +994,7 @@ bool GSOSDDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = { 0 };
 
-			m_color.r = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_RED_SLIDER), TBM_GETPOS, 0, 0);
+			m_color.r = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_RED_SLIDER), TBM_GETPOS, 0, 0);
 
 			sprintf(text, "%d", m_color.r);
 			SetDlgItemText(m_hWnd, IDC_OSD_COLOR_RED_AMOUNT, text);
@@ -1003,7 +1003,7 @@ bool GSOSDDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = { 0 };
 
-			m_color.g = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_GREEN_SLIDER), TBM_GETPOS, 0, 0);
+			m_color.g = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_GREEN_SLIDER), TBM_GETPOS, 0, 0);
 
 			sprintf(text, "%d", m_color.g);
 			SetDlgItemText(m_hWnd, IDC_OSD_COLOR_GREEN_AMOUNT, text);
@@ -1012,7 +1012,7 @@ bool GSOSDDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			char text[8] = { 0 };
 
-			m_color.b = SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_BLUE_SLIDER), TBM_GETPOS, 0, 0);
+			m_color.b = (int)SendMessage(GetDlgItem(m_hWnd, IDC_OSD_COLOR_BLUE_SLIDER), TBM_GETPOS, 0, 0);
 
 			sprintf(text, "%d", m_color.b);
 			SetDlgItemText(m_hWnd, IDC_OSD_COLOR_BLUE_AMOUNT, text);

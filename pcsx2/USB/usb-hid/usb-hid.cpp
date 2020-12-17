@@ -276,7 +276,7 @@ namespace usb_hid
 		0x0a,       /*  u8  ep_bInterval; (255ms -- usb 2.0 spec) */
 	};
 
-	static const uint8_t qemu_tablet_config_descriptor[] = {
+	[[maybe_unused]]static const uint8_t qemu_tablet_config_descriptor[] = {
 		/* one configuration */
 		0x09,       /*  u8  bLength; */
 		0x02,       /*  u8  bDescriptorType; Configuration */
@@ -730,7 +730,9 @@ namespace usb_hid
 
 		std::string varApi;
 #ifdef _WIN32
-		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, str_to_wstr(varApi));
+		std::wstring tmp;
+		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, tmp);
+		varApi = wstr_to_str(tmp);
 #else
 		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
 #endif
@@ -825,7 +827,9 @@ namespace usb_hid
 
 		std::string varApi;
 #ifdef _WIN32
-		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, str_to_wstr(varApi));
+		std::wstring tmp;
+		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, tmp);
+		varApi = wstr_to_str(tmp);
 #else
 		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
 #endif
@@ -901,7 +905,9 @@ namespace usb_hid
 
 		std::string varApi;
 #ifdef _WIN32
-		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, str_to_wstr(varApi));
+		std::wstring tmp;
+		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, tmp);
+		varApi = wstr_to_str(tmp);
 #else
 		LoadSetting(nullptr, port, TypeName(), N_DEVICE_API, varApi);
 #endif
