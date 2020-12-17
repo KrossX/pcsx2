@@ -56,6 +56,11 @@ if(XDG_STD)
     set(pcsx2FinalFlags ${pcsx2FinalFlags} -DXDG_STD)
 endif()
 
+if(SDL_FOUND OR SDL2_FOUND)
+    set(pcsx2FinalFlags ${pcsx2FinalFlags} -DSDL_BUILD)
+endif()
+
+
 set(Output PCSX2)
 
 # Main pcsx2 source
@@ -445,6 +450,95 @@ if(PULSEAUDIO_FOUND)
     set(pcsx2USBSources ${pcsx2USBSources} USB/usb-mic/audiodev-pulse.cpp)
     set(pcsx2USBHeaders ${pcsx2USBHeaders} USB/usb-mic/audiodev-pulse.h)
 endif()
+
+
+
+# PAD resources pre-compilation
+set(PADImgHeader "${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/ImgHeader")
+set(PADImg "${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/Img")
+include_directories ("${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/")
+
+file(MAKE_DIRECTORY ${PADImgHeader})
+
+foreach(result_file IN ITEMS
+        analog circle cross dp_bottom dp_left dp_right dp_up dualshock2
+        joystick_cursor l1 r1 l2 r2 l3 r3 select square start triangle arrow_up
+        arrow_bottom arrow_left arrow_right)
+    add_custom_command(
+        OUTPUT  "${PADImgHeader}/${result_file}.h"
+        COMMAND perl ${CMAKE_SOURCE_DIR}/linux_various/hex2h.pl "${PADImg}/${result_file}.png" "${PADImgHeader}/${result_file}" )
+endforeach()
+
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.h
+    COMMAND glib-compile-resources --sourcedir "${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res" --generate-header
+    --c-name PAD_res "${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/PAD-res.xml" --target=${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.h
+    DEPENDS ${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/PAD-res.xml ${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/game_controller_db.txt)
+
+add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.cpp
+    COMMAND glib-compile-resources --sourcedir "${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res" --generate-source
+    --c-name PAD_res "${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/PAD-res.xml" --target=${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.cpp
+    DEPENDS ${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/PAD-res.xml ${CMAKE_SOURCE_DIR}/pcsx2/PAD/Linux/res/game_controller_db.txt)
+
+
+# PAD/Linux sources 
+set(pcsx2PADSources
+    PAD/Linux/controller.cpp
+    PAD/Linux/GamePad.cpp
+    PAD/Linux/SDL/joystick.cpp
+    PAD/Linux/keyboard.cpp
+    PAD/Linux/KeyStatus.cpp
+    PAD/Linux/PAD.cpp
+    PAD/Linux/state_management.cpp
+    PAD/Linux/wx_dialog/dialog.cpp
+    PAD/Linux/wx_dialog/opPanel.cpp
+    PAD/Linux/wx_dialog/GamepadConfiguration.cpp
+    PAD/Linux/wx_dialog/JoystickConfiguration.cpp
+    PAD/Linux/ini.cpp
+    PAD/Linux/linux.cpp
+    ${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.cpp
+    )
+
+# PAD/Linux headers
+set(pcsx2PADHeaders
+    PAD/Linux/bitwise.h
+    PAD/Linux/controller.h
+    PAD/Linux/GamePad.h
+    PAD/Linux/SDL/joystick.h
+    PAD/Linux/keyboard.h
+    PAD/Linux/KeyStatus.h
+    PAD/Linux/PAD.h
+    PAD/Linux/state_management.h
+    PAD/Linux/wx_dialog/opPanel.h
+    PAD/Linux/wx_dialog/GamepadConfiguration.h
+    PAD/Linux/wx_dialog/JoystickConfiguration.h
+    ${CMAKE_BINARY_DIR}/pcsx2/PAD/Linux/resources_pad.h
+    # images
+    ${PADImgHeader}/analog.h
+    ${PADImgHeader}/circle.h
+    ${PADImgHeader}/cross.h
+    ${PADImgHeader}/dp_bottom.h
+    ${PADImgHeader}/dp_left.h
+    ${PADImgHeader}/dp_right.h
+    ${PADImgHeader}/dp_up.h
+    ${PADImgHeader}/dualshock2.h
+    ${PADImgHeader}/joystick_cursor.h
+    ${PADImgHeader}/l1.h
+    ${PADImgHeader}/r1.h
+    ${PADImgHeader}/l2.h
+    ${PADImgHeader}/r2.h
+    ${PADImgHeader}/l3.h
+    ${PADImgHeader}/r3.h
+    ${PADImgHeader}/select.h
+    ${PADImgHeader}/square.h
+    ${PADImgHeader}/start.h
+    ${PADImgHeader}/triangle.h
+    ${PADImgHeader}/arrow_up.h
+    ${PADImgHeader}/arrow_bottom.h
+    ${PADImgHeader}/arrow_left.h
+    ${PADImgHeader}/arrow_right.h
+    )
 
 # DebugTools sources
 set(pcsx2DebugToolsSources
@@ -880,6 +974,8 @@ set(Common
 	${pcsx2SPU2Headers}
 	${pcsx2DEV9Sources}
 	${pcsx2DEV9Headers}
+	${pcsx2PADHeaders}
+	${pcsx2PADSources}
 	${pcsx2DebugToolsSources}
 	${pcsx2GuiSources}
 	${pcsx2GuiResources}
@@ -912,6 +1008,7 @@ if(Linux)
 		
 	set(Platform_Libs
 		${LIBUDEV_LIBRARIES}
+		${X11_LIBRARIES}
 		)
 endif()
 
@@ -970,9 +1067,6 @@ endif()
 
 if(BUILTIN_GS)
     set(pcsx2FinalLibs "${pcsx2FinalLibs} GSdx")
-endif()
-if(BUILTIN_PAD)
-    set(pcsx2FinalLibs "${pcsx2FinalLibs} onepad-1.2.0")
 endif()
 
 # additonal include directories

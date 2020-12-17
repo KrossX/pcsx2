@@ -69,15 +69,19 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">PCSX2_DEVEL;PCSX2_DEVBUILD;NDEBUG;_SECURE_SCL_=1;WIN32_LEAN_AND_MEAN;SPU2X_PORTAUDIO;BUILD_DX=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NDEBUG;_SECURE_SCL_=0;WIN32_LEAN_AND_MEAN;SPU2X_PORTAUDIO;BUILD_DX=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NDEBUG;_SECURE_SCL_=0;WIN32_LEAN_AND_MEAN;SPU2X_PORTAUDIO;BUILD_DX=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</MinimalRebuild>
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">false</MinimalRebuild>
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</MinimalRebuild>
+      <MinimalRebuild Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">false</MinimalRebuild>
     </ClCompile>
     <Link>
       <LargeAddressAware>Yes</LargeAddressAware>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;xaudio2_9redist.lib;dsound.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;xaudio2_9redist.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
@@ -99,6 +103,7 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="..\..\PAD\Windows\Default.ini" />
     <None Include="..\..\Utilities\folderdesc.txt" />
     <None Include="..\..\Docs\License.txt" />
     <None Include="..\..\x86\microVU_Alloc.inl" />
@@ -306,6 +311,24 @@
     <ClCompile Include="..\..\IopGte.cpp" />
     <ClCompile Include="..\..\IPC.cpp" />
     <ClCompile Include="..\..\FW.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\PADConfig.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\DeviceEnumerator.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\Diagnostics.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\DirectInput.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\DualShock3.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\Global.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\HidDevice.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\InputManager.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\KeyboardQueue.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\PAD.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\PADRawInput.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\Tooltips.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\VKey.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\WindowsKeyboard.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\WindowsMessaging.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\WindowsMouse.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\WndProcEater.cpp" />
+    <ClCompile Include="..\..\PAD\Windows\XInputEnum.cpp" />
     <ClCompile Include="..\..\SPU2\DplIIdecoder.cpp" />
     <ClCompile Include="..\..\SPU2\debug.cpp" />
     <ClCompile Include="..\..\SPU2\RegLog.cpp" />
@@ -647,6 +670,26 @@
     <ClInclude Include="..\..\IopGte.h" />
     <ClInclude Include="..\..\IPC.h" />
     <ClInclude Include="..\..\FW.h" />
+    <ClInclude Include="..\..\PAD\Windows\PAD.h" />
+    <ClInclude Include="..\..\PAD\Windows\PADConfig.h" />
+    <ClInclude Include="..\..\PAD\Windows\DeviceEnumerator.h" />
+    <ClInclude Include="..\..\PAD\Windows\Diagnostics.h" />
+    <ClInclude Include="..\..\PAD\Windows\DirectInput.h" />
+    <ClInclude Include="..\..\PAD\Windows\DualShock3.h" />
+    <ClInclude Include="..\..\PAD\Windows\Global.h" />
+    <ClInclude Include="..\..\PAD\Windows\HidDevice.h" />
+    <ClInclude Include="..\..\PAD\Windows\InputManager.h" />
+    <ClInclude Include="..\..\PAD\Windows\KeyboardQueue.h" />
+    <ClInclude Include="..\..\PAD\Windows\PADRawInput.h" />
+    <ClInclude Include="..\..\PAD\Windows\resource_pad.h" />
+    <ClInclude Include="..\..\PAD\Windows\Tooltips.h" />
+    <ClInclude Include="..\..\PAD\Windows\usb.h" />
+    <ClInclude Include="..\..\PAD\Windows\VKey.h" />
+    <ClInclude Include="..\..\PAD\Windows\WindowsKeyboard.h" />
+    <ClInclude Include="..\..\PAD\Windows\WindowsMessaging.h" />
+    <ClInclude Include="..\..\PAD\Windows\WindowsMouse.h" />
+    <ClInclude Include="..\..\PAD\Windows\WndProcEater.h" />
+    <ClInclude Include="..\..\PAD\Windows\XInputEnum.h" />
     <ClInclude Include="..\..\SPU2\Config.h" />
     <ClInclude Include="..\..\SPU2\Global.h" />
     <ClInclude Include="..\..\SPU2\spu2replay.h" />
@@ -868,6 +911,7 @@
     <ResourceCompile Include="..\..\..\3rdparty\wxwidgets3.0\include\wx\msw\wx.rc">
       <AdditionalIncludeDirectories>$(SolutionDir)3rdparty\wxwidgets3.0\$(PlatformName);$(SolutionDir)3rdparty\wxwidgets3.0\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
+    <ResourceCompile Include="..\..\PAD\Windows\PAD.rc" />
     <ResourceCompile Include="..\..\SPU2\Windows\SPU2.rc" />
     <ResourceCompile Include="..\..\DEV9\Win32\DEV9ghzdrk.rc" />
     <ResourceCompile Include="..\..\USB\usb-pad\dx\versionproxy.rc" />

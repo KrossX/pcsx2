@@ -23,6 +23,11 @@
 #include "System/SysThreads.h"
 #include "DEV9/DEV9.h"
 #include "USB/USB.h"
+#ifdef _WIN32
+#include "PAD/Windows/PAD.h"
+#else
+#include "PAD/Linux/PAD.h"
+#endif
 
 #include "ConsoleLogger.h"
 #include "MainFrame.h"
@@ -68,6 +73,11 @@ void MainEmuFrame::Menu_NetworkSettings_Click(wxCommandEvent &event)
 void MainEmuFrame::Menu_USBSettings_Click(wxCommandEvent& event)
 {
 	USBconfigure();
+}
+
+void MainEmuFrame::Menu_PADSettings_Click(wxCommandEvent& event)
+{
+	PADconfigure();
 }
 
 void MainEmuFrame::Menu_WindowSettings_Click(wxCommandEvent &event)
@@ -721,7 +731,15 @@ protected:
 	void InvokeEvent()
 	{
 		if (CoreThread.IsOpen())
+		{
 			CoreThread.Suspend();
+#ifndef DISABLE_RECORDING
+			// Disable recording controls that only make sense if the game is running
+			sMainFrame.enableRecordingMenuItem(MenuId_Recording_FrameAdvance, false);
+			sMainFrame.enableRecordingMenuItem(MenuId_Recording_TogglePause, false);
+			sMainFrame.enableRecordingMenuItem(MenuId_Recording_ToggleRecordingMode, false);
+#endif
+		}
 		else
 			CoreThread.Resume();
 	}
@@ -763,31 +781,7 @@ void MainEmuFrame::Menu_ConfigPlugin_Click(wxCommandEvent& event)
 	wxWindowDisabler disabler;
 	ScopedCoreThreadPause paused_core(new SysExecEvent_SaveSinglePlugin(pid));
 
-#ifndef DISABLE_RECORDING
-	if (pid == PluginId_PAD)
-	{
-		// The recording features involve pausing emulation, and can be resumed ideally via key-bindings.
-		//
-		// However, since the PAD plugin is used to do so, if it's closed then there is nothing to read
-		// the keybind resulting producing an unrecovable state.
-		//
-		// If the CoreThread is paused prior to opening the PAD plugin settings then when the settings
-		// are closed the PAD will not re-open. To avoid this, we resume emulation prior to the plugins
-		// configuration handler doing so.
-		if (g_Conf->EmuOptions.EnableRecordingTools && g_InputRecordingControls.IsPaused())
-		{
-			g_InputRecordingControls.Resume();
-			GetCorePlugins().Configure(pid);
-			g_InputRecordingControls.Pause();
-		}
-		else
-			GetCorePlugins().Configure(pid);
-	}
-	else
-		GetCorePlugins().Configure(pid);
-#else
 	GetCorePlugins().Configure(pid);
-#endif
 }
 
 void MainEmuFrame::Menu_Debug_Open_Click(wxCommandEvent& event)

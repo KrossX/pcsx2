@@ -30,6 +30,11 @@
 #include "SPU2/spu2.h"
 #include "DEV9/DEV9.h"
 #include "USB/USB.h"
+#ifdef _WIN32
+#include "PAD/Windows/PAD.h"
+#else
+#include "PAD/Linux/PAD.h"
+#endif
 
 #include "../DebugTools/MIPSAnalyst.h"
 #include "../DebugTools/SymbolMap.h"
@@ -96,6 +101,7 @@ void SysCoreThread::Start()
 		return;
 	GetCorePlugins().Init();
 	SPU2init();
+	PADinit();
 	DEV9init();
 	USBinit();
 	_parent::Start();
@@ -311,6 +317,7 @@ void SysCoreThread::OnSuspendInThread()
 	USBclose();
 	DoCDVDclose();
 	FWclose();
+	PADclose();
 	SPU2close();
 }
 
@@ -325,6 +332,7 @@ void SysCoreThread::OnResumeInThread(bool isSuspended)
 	}
 	FWopen();
 	SPU2open((void*)pDsp);
+	PADopen((void*)pDsp);
 }
 
 
@@ -341,6 +349,7 @@ void SysCoreThread::OnCleanupInThread()
 	vu1Thread.WaitVU();
 	USBclose();
 	SPU2close();
+	PADclose();
 	DEV9close();
 	DoCDVDclose();
 	FWclose();
@@ -348,6 +357,7 @@ void SysCoreThread::OnCleanupInThread()
 	GetCorePlugins().Shutdown();
 	USBshutdown();
 	SPU2shutdown();
+	PADshutdown();
 	DEV9shutdown();
 
 	_mm_setcsr(m_mxcsr_saved.bitmask);
