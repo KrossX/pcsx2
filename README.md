@@ -1,5 +1,6 @@
 # Fork Status
-[![Travis Build Status](https://travis-ci.org/krossx/pcsx2.svg?branch=master)](https://travis-ci.org/krossx/pcsx2) [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/krossx/pcsx2?branch=master&svg=true)](https://ci.appveyor.com/project/krossx/pcsx2/branch/master)
+![Windows Build](https://github.com/KrossX/pcsx2/workflows/Windows%20Build/badge.svg)
+![Linux Build](https://github.com/KrossX/pcsx2/workflows/Linux%20Build/badge.svg)
 
 # PCSX2
 
