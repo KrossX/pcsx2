@@ -48,8 +48,9 @@
     <ClCompile Include="Renderers\Common\GSDevice.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-	<ClCompile Include="Renderers\DX9\GSDevice9.cpp">
+    <ClCompile Include="Renderers\DX9\GSDevice9.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Renderers\DX11\GSDevice11.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -98,7 +99,7 @@
     <ClCompile Include="Renderers\Common\GSRenderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-	<ClCompile Include="Renderers\DX9\GSRendererDX9.cpp">
+    <ClCompile Include="Renderers\DX9\GSRendererDX9.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Renderers\DX11\GSRendererDX11.cpp">
@@ -134,7 +135,7 @@
     <ClCompile Include="Renderers\Common\GSTexture.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-	<ClCompile Include="Renderers\DX9\GSTexture9.cpp">
+    <ClCompile Include="Renderers\DX9\GSTexture9.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Renderers\DX11\GSTexture11.cpp">
@@ -146,7 +147,7 @@
     <ClCompile Include="Renderers\HW\GSTextureCache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-	<ClCompile Include="Renderers\DX9\GSTextureCache9.cpp">
+    <ClCompile Include="Renderers\DX9\GSTextureCache9.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Renderers\DX11\GSTextureCache11.cpp">
@@ -158,7 +159,7 @@
     <ClCompile Include="Renderers\SW\GSTextureCacheSW.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-	<ClCompile Include="Renderers\DX9\GSTextureFX9.cpp">
+    <ClCompile Include="Renderers\DX9\GSTextureFX9.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Renderers\DX11\GSTextureFX11.cpp">
@@ -286,7 +287,7 @@
     <ClInclude Include="Renderers\Common\GSDevice.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-	<ClInclude Include="Renderers\DX9\GSDevice9.h">
+    <ClInclude Include="Renderers\DX9\GSDevice9.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Renderers\DX11\GSDevice11.h">
@@ -340,7 +341,7 @@
     <ClInclude Include="Renderers\Common\GSRenderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-	<ClInclude Include="Renderers\DX9\GSRendererDX9.h">
+    <ClInclude Include="Renderers\DX9\GSRendererDX9.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Renderers\DX11\GSRendererDX11.h">
@@ -382,7 +383,7 @@
     <ClInclude Include="Renderers\Common\GSTexture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-	<ClInclude Include="Renderers\DX9\GSTexture9.h">
+    <ClInclude Include="Renderers\DX9\GSTexture9.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Renderers\DX11\GSTexture11.h">
@@ -394,7 +395,7 @@
     <ClInclude Include="Renderers\HW\GSTextureCache.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-	<ClInclude Include="Renderers\DX9\GSTextureCache9.h">
+    <ClInclude Include="Renderers\DX9\GSTextureCache9.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Renderers\DX11\GSTextureCache11.h">
@@ -520,7 +521,7 @@
     <None Include="res\shadeboost.fx">
       <Filter>Shaders</Filter>
     </None>
-	<None Include="res\d3d9\fxaa.fx">
+    <None Include="res\d3d9\fxaa.fx">
       <Filter>Shaders</Filter>
     </None>
     <None Include="res\d3d9\convert.fx">
@@ -572,7 +573,7 @@
     <Image Include="res\logo11.bmp">
       <Filter>Resource Files</Filter>
     </Image>
-	<Image Include="res\logo9.bmp">
+    <Image Include="res\logo9.bmp">
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="res\logo-null.bmp">
