@@ -138,13 +138,9 @@ namespace usb_hid
 
 		static void ParseRawInputKB(RAWKEYBOARD& k, HIDState* hs)
 		{
-			if (!hs->kbd.eh_entry)
+			if (hs->kind != HID_KEYBOARD || !hs->kbd.eh_entry)
 				return;
-			static uint32_t nr = 0;
 
-			nr++;
-			if (nr > 10)
-				nr = 0;
 			if (KEYBOARD_OVERRUN_MAKE_CODE == k.MakeCode)
 				return;
 
@@ -165,7 +161,7 @@ namespace usb_hid
 
 			InputEvent ev{};
 			ev.type = INPUT_EVENT_KIND_KEY;
-			ev.u.key.down = !k.Flags;
+			ev.u.key.down = !(k.Flags & RI_KEY_BREAK);
 			ev.u.key.key.type = KEY_VALUE_KIND_QCODE;
 			ev.u.key.key.u.qcode = qcode;
 
@@ -174,20 +170,19 @@ namespace usb_hid
 
 		static void SendPointerEvent(InputEvent& ev, HIDState* hs)
 		{
-			if (hs->ptr.eh_entry)
-			{
-				hs->ptr.eh_entry(hs, &ev);
-			}
+			hs->ptr.eh_entry(hs, &ev);
 		}
 
 		static void ParseRawInputMS(RAWMOUSE& m, HIDState* hs)
 		{
-			int b = 0, z = 0;
+			if (!hs->ptr.eh_entry || (hs->kind != HID_MOUSE && hs->kind != HID_TABLET))
+				return;
+
+			int z = 0;
 			InputEvent ev{};
 
 			if (m.usButtonFlags & RI_MOUSE_WHEEL)
 				z = (short)m.usButtonData / WHEEL_DELTA;
-
 
 			ev.type = INPUT_EVENT_KIND_BTN;
 
@@ -245,13 +240,13 @@ namespace usb_hid
 			if (m.usFlags & MOUSE_MOVE_ABSOLUTE)
 			{
 				/*ev.type = INPUT_EVENT_KIND_ABS;
-		ev.u.abs.axis = INPUT_AXIS_X;
-		ev.u.abs.value = m.lLastX;
-		SendPointerEvent(ev, hs);
+				ev.u.abs.axis = INPUT_AXIS_X;
+				ev.u.abs.value = m.lLastX;
+				SendPointerEvent(ev, hs);
 
-		ev.u.abs.axis = INPUT_AXIS_Y;
-		ev.u.abs.value = m.lLastY;
-		SendPointerEvent(ev, hs);*/
+				ev.u.abs.axis = INPUT_AXIS_Y;
+				ev.u.abs.value = m.lLastY;
+				SendPointerEvent(ev, hs);*/
 			}
 			else
 			{
@@ -289,8 +284,8 @@ namespace usb_hid
 
 		int RawInput::Close()
 		{
-			Reset();
 			shared::rawinput::UnregisterCallback(this);
+			Reset();
 			return 0;
 		}
 

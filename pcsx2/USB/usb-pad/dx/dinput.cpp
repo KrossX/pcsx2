@@ -46,7 +46,6 @@ namespace usb_pad
 		static std::atomic<int> refCount(0);
 		static bool useRamp = false;
 
-		HWND hWin = NULL;
 		DWORD pid = 0;
 		DWORD old = 0;
 
@@ -107,7 +106,7 @@ namespace usb_pad
 
 		LONG GetAxisValueFromOffset(int axis, const DIJOYSTATE2& j)
 		{
-#define LVX_OFFSET 8 // count POVs or not?
+			constexpr int LVX_OFFSET = 8; // count POVs or not?
 			switch (axis)
 			{
 				case 0:
@@ -211,7 +210,6 @@ namespace usb_pad
 					return j.rglFSlider[1];
 					break;
 			}
-#undef LVX_OFFSET
 			return 0;
 		}
 
@@ -230,15 +228,15 @@ namespace usb_pad
 				{
 					if (m_type == CT_JOYSTICK)
 					{
-						m_device->GetDeviceState(sizeof(DIJOYSTATE2), &m_controls);
+						m_device->GetDeviceState(sizeof(m_controls.js2), &m_controls.js2);
 					}
 					else if (m_type == CT_MOUSE)
 					{
-						m_device->GetDeviceState(sizeof(DIMOUSESTATE2), &m_controls);
+						m_device->GetDeviceState(sizeof(m_controls.ms2), &m_controls.ms2);
 					}
 					else if (m_type == CT_KEYBOARD)
 					{
-						m_device->GetDeviceState(sizeof(m_controls.kbd), &m_controls);
+						m_device->GetDeviceState(sizeof(m_controls.kbd), &m_controls.kbd);
 					}
 					return true;
 				}
@@ -359,80 +357,85 @@ namespace usb_pad
 
 		void CreateFFB(int port, LPDIRECTINPUTDEVICE8 device, DWORD axis)
 		{
-			HRESULT hres = 0;
+			HRESULT hres;
 			ReleaseFFB(port);
 
 			if (!device)
 				return;
 
-			try
-			{
-				rgdwAxes[0] = axis;
-				//LPDIRECTINPUTDEVICE8 device = joy->GetDevice();
-				//create the constant force effect
-				ZeroMemory(&eff, sizeof(eff));
-				ZeroMemory(&effSpring, sizeof(effSpring));
-				ZeroMemory(&effFriction, sizeof(effFriction));
-				ZeroMemory(&cfw, sizeof(cfw));
-				ZeroMemory(&cSpring, sizeof(cSpring));
-				ZeroMemory(&cFriction, sizeof(cFriction));
-				ZeroMemory(&cRamp, sizeof(cRamp));
+			UpdateFFBSettings(port, device);
 
-				//constantforce
-				eff.dwSize = sizeof(DIEFFECT);
-				eff.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
-				eff.dwSamplePeriod = 0;
-				eff.dwGain = MIN(MAX(GAINZ[port][0], 0), 10000);
-				eff.dwTriggerButton = DIEB_NOTRIGGER;
-				eff.dwTriggerRepeatInterval = 0;
-				eff.cAxes = countof(rgdwAxes);
-				eff.rgdwAxes = rgdwAxes; //TODO set actual "steering" axis though usually is DIJOFS_X
-				eff.rglDirection = rglDirection;
-				eff.dwStartDelay = 0;
-				eff.dwDuration = INFINITE;
+			rgdwAxes[0] = axis;
+			//LPDIRECTINPUTDEVICE8 device = joy->GetDevice();
+			//create the constant force effect
+			ZeroMemory(&eff, sizeof(eff));
+			ZeroMemory(&effSpring, sizeof(effSpring));
+			ZeroMemory(&effFriction, sizeof(effFriction));
+			ZeroMemory(&cfw, sizeof(cfw));
+			ZeroMemory(&cSpring, sizeof(cSpring));
+			ZeroMemory(&cFriction, sizeof(cFriction));
+			ZeroMemory(&cRamp, sizeof(cRamp));
 
-				// copy default values
-				effSpring = eff;
-				effFriction = eff;
-				effRamp = eff;
-				effDamper = eff;
+			//constantforce
+			eff.dwSize = sizeof(eff);
+			eff.dwFlags = DIEFF_CARTESIAN | DIEFF_OBJECTOFFSETS;
+			eff.dwSamplePeriod = 0;
+			eff.dwGain = DI_FFNOMINALMAX;
+			eff.dwTriggerButton = DIEB_NOTRIGGER;
+			eff.dwTriggerRepeatInterval = 0;
+			eff.cAxes = countof(rgdwAxes);
+			eff.rgdwAxes = rgdwAxes; //TODO set actual "steering" axis though usually is DIJOFS_X
+			eff.rglDirection = rglDirection;
+			eff.dwStartDelay = 0;
+			eff.dwDuration = INFINITE;
 
-				cfw.lMagnitude = 0;
+			// copy default values
+			effSpring = eff;
+			effFriction = eff;
+			effRamp = eff;
+			effDamper = eff;
 
-				eff.cbTypeSpecificParams = sizeof(DICONSTANTFORCE);
-				eff.lpvTypeSpecificParams = &cfw;
-				hres = device->CreateEffect(GUID_ConstantForce, &eff, &g_pEffectConstant[port], NULL);
+			cfw.lMagnitude = 0;
 
-				cSpring.lNegativeCoefficient = 0;
-				cSpring.lPositiveCoefficient = 0;
+			eff.cbTypeSpecificParams = sizeof(cfw);
+			eff.lpvTypeSpecificParams = &cfw;
+			hres = device->CreateEffect(GUID_ConstantForce, &eff, &g_pEffectConstant[port], NULL);
 
-				effSpring.cbTypeSpecificParams = sizeof(DICONDITION);
-				effSpring.lpvTypeSpecificParams = &cSpring;
-				hres = device->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
+			cSpring.lNegativeCoefficient = 0;
+			cSpring.lPositiveCoefficient = 0;
 
-				effFriction.cbTypeSpecificParams = sizeof(DICONDITION);
-				effFriction.lpvTypeSpecificParams = &cFriction;
-				hres = device->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
+			effSpring.cbTypeSpecificParams = sizeof(cSpring);
+			effSpring.lpvTypeSpecificParams = &cSpring;
+			hres = device->CreateEffect(GUID_Spring, &effSpring, &g_pEffectSpring[port], NULL);
 
-				effRamp.cbTypeSpecificParams = sizeof(DIRAMPFORCE);
-				effRamp.lpvTypeSpecificParams = &cRamp;
-				hres = device->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
+			effFriction.cbTypeSpecificParams = sizeof(cFriction);
+			effFriction.lpvTypeSpecificParams = &cFriction;
+			hres = device->CreateEffect(GUID_Friction, &effFriction, &g_pEffectFriction[port], NULL);
 
-				effDamper.cbTypeSpecificParams = sizeof(DICONDITION);
-				effDamper.lpvTypeSpecificParams = &cDamper;
-				hres = device->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+			effRamp.cbTypeSpecificParams = sizeof(cRamp);
+			effRamp.lpvTypeSpecificParams = &cRamp;
+			hres = device->CreateEffect(GUID_RampForce, &effRamp, &g_pEffectRamp[port], NULL);
 
-				FFB[port] = true;
-			}
-			catch (...)
-			{
-			};
+			effDamper.cbTypeSpecificParams = sizeof(cDamper);
+			effDamper.lpvTypeSpecificParams = &cDamper;
+			hres = device->CreateEffect(GUID_Damper, &effDamper, &g_pEffectDamper[port], NULL);
+
+			FFB[port] = true;
 
 			//start the effect
 			if (g_pEffectConstant[port])
 			{
-				g_pEffectConstant[port]->SetParameters(&eff, DIEP_START | DIEP_GAIN | DIEP_AXES | DIEP_DIRECTION);
+				g_pEffectConstant[port]->Start(1, 0);
 			}
+		}
+
+		void UpdateFFBSettings(int port, LPDIRECTINPUTDEVICE8 device)
+		{
+			DIPROPDWORD prop { sizeof(prop), sizeof(prop.diph) };
+			prop.diph.dwObj = 0;
+			prop.diph.dwHow = DIPH_DEVICE;
+			prop.dwData = std::clamp(GAINZ[port][0], 0, DI_FFNOMINALMAX);
+			device->SetProperty(DIPROP_FFGAIN, &prop.diph);
 		}
 
 		BOOL CALLBACK EnumJoysticksCallback(const DIDEVICEINSTANCE* pdidInstance,
@@ -458,9 +461,7 @@ namespace usb_pad
 			// enumerated axis in order to scale min/max values.
 			if (pdidoi->dwType & DIDFT_AXIS)
 			{
-				DIPROPRANGE diprg;
-				diprg.diph.dwSize = sizeof(DIPROPRANGE);
-				diprg.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+				DIPROPRANGE diprg { sizeof(diprg), sizeof(diprg.diph) };
 				diprg.diph.dwHow = DIPH_BYID;
 				diprg.diph.dwObj = pdidoi->dwType; // Specify the enumerated axis
 				diprg.lMin = 0;
@@ -613,9 +614,7 @@ namespace usb_pad
 			if (!device)
 				return;
 			//disable the auto-centering spring.
-			DIPROPDWORD dipdw;
-			dipdw.diph.dwSize = sizeof(DIPROPDWORD);
-			dipdw.diph.dwHeaderSize = sizeof(DIPROPHEADER);
+			DIPROPDWORD dipdw { sizeof(dipdw), sizeof(dipdw.diph) };
 			dipdw.diph.dwObj = 0;
 			dipdw.diph.dwHow = DIPH_DEVICE;
 			dipdw.dwData = onoff ? DIPROPAUTOCENTER_ON : DIPROPAUTOCENTER_OFF;
@@ -855,8 +854,7 @@ namespace usb_pad
 					auto device = joy->GetDevice();
 					device->SetDataFormat(&c_dfDIJoystick2);
 
-					DIDEVCAPS diCaps;
-					diCaps.dwSize = sizeof(DIDEVCAPS);
+					DIDEVCAPS diCaps { sizeof(diCaps) };
 					device->GetCapabilities(&diCaps);
 
 					if (diCaps.dwFlags & DIDC_FORCEFEEDBACK)
@@ -903,12 +901,6 @@ namespace usb_pad
 			return NULL;
 		}
 
-		void GetID(TCHAR* name)
-		{
-			hWin = ::FindWindow(name, NULL);
-			::GetWindowThreadProcessId(hWin, &pid);
-		}
-
 		bool FindFFDevice(int port)
 		{
 			InputMapped im;
@@ -916,8 +908,7 @@ namespace usb_pad
 				return false;
 
 			auto device = g_pJoysticks[im.index]->GetDevice();
-			DIDEVCAPS diCaps;
-			diCaps.dwSize = sizeof(DIDEVCAPS);
+			DIDEVCAPS diCaps { sizeof(diCaps) };
 			device->GetCapabilities(&diCaps);
 
 			//has ffb?
@@ -942,6 +933,8 @@ namespace usb_pad
 		//use direct input
 		void InitDI(int port, const char* dev_type)
 		{
+			HWND hWin = nullptr;
+
 			if (gsWnd)
 			{
 				hWin = gsWnd;
@@ -955,7 +948,8 @@ namespace usb_pad
 				}
 			}
 
-			InitDirectInput(hWin, port);
+			// DirectInput needs a top-level window
+			InitDirectInput(GetAncestor(hWin, GA_ROOT), port);
 			LoadDInputConfig(port, dev_type);
 			FindFFDevice(port);
 		}
@@ -1009,10 +1003,10 @@ namespace usb_pad
 		}
 
 		//set left/right ffb torque
-		void SetConstantForce(int port, LONG magnitude)
+		HRESULT SetConstantForce(int port, LONG magnitude)
 		{
-			if (!FFB[port])
-				return;
+			if (!FFB[port] || !g_pEffectConstant[port])
+				return DIERR_NOTINITIALIZED;
 
 			if (INVERTFORCES[port])
 				cfw.lMagnitude = -magnitude;
@@ -1022,23 +1016,25 @@ namespace usb_pad
 			if (FFMULTI[port][0] > 0)
 				cfw.lMagnitude *= 1 + FFMULTI[port][0];
 
-			if (g_pEffectConstant[port])
-				g_pEffectConstant[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
+			return g_pEffectConstant[port]->SetParameters(&eff, DIEP_TYPESPECIFICPARAMS | DIEP_START);
 		}
 
 		void TestForce(int port)
 		{
-
 			InputMapped im;
 			LPDIRECTINPUTDEVICE8 dev = nullptr;
 			if (GetInputMap(port, CID_STEERING, im))
 				dev = g_pJoysticks[im.index]->GetDevice();
 
-			SetConstantForce(port, DI_FFNOMINALMAX / 2);
+			// Gain value may have changed, so update it for the constant force effect
+			UpdateFFBSettings(port, dev);
+
+			if (FAILED(SetConstantForce(port, DI_FFNOMINALMAX / 3)))
+				return;
 			Sleep(500);
-			SetConstantForce(port, -DI_FFNOMINALMAX / 2);
+			SetConstantForce(port, -DI_FFNOMINALMAX / 3);
 			Sleep(1000);
-			SetConstantForce(port, DI_FFNOMINALMAX / 2);
+			SetConstantForce(port, DI_FFNOMINALMAX / 3);
 			Sleep(500);
 			SetConstantForce(port, 0);
 

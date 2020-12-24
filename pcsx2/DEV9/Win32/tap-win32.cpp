@@ -271,6 +271,9 @@ TAPAdapter::TAPAdapter()
 	write.Offset = 0;
 	write.OffsetHigh = 0;
 	write.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+	cancel = CreateEvent(NULL, TRUE, FALSE, NULL);
+
 	isActive = true;
 }
 
@@ -298,15 +301,17 @@ bool TAPAdapter::recv(NetPacket* pkt)
 		DWORD dwError = GetLastError();
 		if (dwError == ERROR_IO_PENDING)
 		{
-			WaitForSingleObject(read.hEvent, INFINITE);
-			result = GetOverlappedResult(htap, &read,
-										 &read_size, FALSE);
-			if (!result)
+			HANDLE readHandles[]{read.hEvent, cancel};
+			const DWORD waitResult = WaitForMultipleObjects(2, readHandles, FALSE, INFINITE);
+
+			if (waitResult == WAIT_OBJECT_0 + 1)
 			{
+				CancelIo(htap);
+				//Wait for the I/O subsystem to acknowledge our cancellation
+				result = GetOverlappedResult(htap, &read, &read_size, TRUE);
 			}
-		}
-		else
-		{
+			else
+				result = GetOverlappedResult(htap, &read, &read_size, FALSE);
 		}
 	}
 
@@ -346,14 +351,7 @@ bool TAPAdapter::send(NetPacket* pkt)
 		if (dwError == ERROR_IO_PENDING)
 		{
 			WaitForSingleObject(write.hEvent, INFINITE);
-			result = GetOverlappedResult(htap, &write,
-										 &writen, FALSE);
-			if (!result)
-			{
-			}
-		}
-		else
-		{
+			result = GetOverlappedResult(htap, &write, &writen, FALSE);
 		}
 	}
 
@@ -367,12 +365,17 @@ bool TAPAdapter::send(NetPacket* pkt)
 	else
 		return false;
 }
+void TAPAdapter::close()
+{
+	SetEvent(cancel);
+}
 TAPAdapter::~TAPAdapter()
 {
 	if (!isActive)
 		return;
 	CloseHandle(read.hEvent);
 	CloseHandle(write.hEvent);
+	CloseHandle(cancel);
 	TAPSetStatus(htap, FALSE);
 	CloseHandle(htap);
 	isActive = false;

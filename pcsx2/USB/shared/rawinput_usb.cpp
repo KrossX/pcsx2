@@ -18,7 +18,9 @@
 #include <cstdio>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 #include "../platcompat.h"
+#include "PAD/Windows/WndProcEater.h"
 
 extern HINSTANCE hInst;
 
@@ -29,20 +31,20 @@ namespace shared
 
 		static std::vector<ParseRawInputCB*> callbacks;
 
-		HWND msgWindow = nullptr;
-		WNDPROC eatenWndProc = nullptr;
-		HWND eatenWnd = nullptr;
-		HHOOK hHook = nullptr, hHookWnd = nullptr, hHookKB = nullptr;
+		bool inited = false;
 		bool skipInput = false;
+		std::mutex cb_mutex;
 
 		void RegisterCallback(ParseRawInputCB* cb)
 		{
+			std::scoped_lock<std::mutex> lk(cb_mutex);
 			if (cb && std::find(callbacks.begin(), callbacks.end(), cb) == callbacks.end())
 				callbacks.push_back(cb);
 		}
 
 		void UnregisterCallback(ParseRawInputCB* cb)
 		{
+			std::scoped_lock<std::mutex> lk(cb_mutex);
 			auto it = std::find(callbacks.begin(), callbacks.end(), cb);
 			if (it != callbacks.end())
 				callbacks.erase(it);
@@ -110,7 +112,6 @@ namespace shared
 
 		static int RegisterRaw(HWND hWnd)
 		{
-			msgWindow = hWnd;
 			RAWINPUTDEVICE Rid[4];
 			Rid[0].usUsagePage = 0x01;
 			Rid[0].usUsage = HID_USAGE_GENERIC_GAMEPAD;
@@ -141,37 +142,13 @@ namespace shared
 			return 1;
 		}
 
-		static LRESULT CALLBACK MyWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+		static ExtraWndProcResult RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, LRESULT* out)
 		{
-			switch (uMsg)
-			{
-				case WM_ACTIVATE:
-					Console.WriteLn("******      WM_ACTIVATE        ****** %p %d\n", hWnd, LOWORD(wParam) != WA_INACTIVE);
-					skipInput = LOWORD(wParam) == WA_INACTIVE;
-					break;
-				case WM_SETFOCUS:
-					Console.WriteLn("******      WM_SETFOCUS        ****** %p\n", hWnd);
-					skipInput = false;
-					break;
-				case WM_KILLFOCUS:
-					Console.WriteLn("******      WM_KILLFOCUS        ****** %p\n", hWnd);
-					skipInput = true;
-					break;
-			}
-			return 0;
-		}
-
-		static LRESULT CALLBACK RawInputProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-		{
-			PRAWINPUT pRawInput;
+			PRAWINPUT pRawInput = nullptr;
 			UINT bufferSize = 0;
 
 			switch (uMsg)
 			{
-				case WM_CREATE:
-					if (eatenWnd == nullptr)
-						RegisterRaw(hWnd);
-					break;
 				case WM_INPUT:
 				{
 					if (skipInput)
@@ -189,6 +166,7 @@ namespace shared
 						if (pRawInput->header.dwType == RIM_TYPEKEYBOARD)
 							ToggleCursor(hWnd, pRawInput->data.keyboard);
 
+						std::lock_guard<std::mutex> lk(cb_mutex);
 						for (auto cb : callbacks)
 							cb->ParseRawInput(pRawInput);
 					}
@@ -196,6 +174,9 @@ namespace shared
 					free(pRawInput);
 					break;
 				}
+				case WM_ENABLE:
+					skipInput = !wParam;
+					break;
 				case WM_ACTIVATE:
 					Console.WriteLn("******      WM_ACTIVATE        ****** %p %d\n", hWnd, LOWORD(wParam) != WA_INACTIVE);
 					skipInput = LOWORD(wParam) == WA_INACTIVE;
@@ -204,94 +185,49 @@ namespace shared
 					break;
 				case WM_SETFOCUS:
 					Console.WriteLn("******      WM_SETFOCUS        ****** %p\n", hWnd);
-					//skipInput = false; //TODO when the hell is WM_SETFOCUS sent? seems like only when mouse is capped
+					skipInput = false;
 					break;
 				case WM_KILLFOCUS:
 					Console.WriteLn("******      WM_KILLFOCUS        ****** %p\n", hWnd);
-					//skipInput = true;
+					skipInput = true;
 					break;
 				case WM_SIZE:
 					if (cursorCaptured)
 						WindowResized(hWnd);
 					break;
 				case WM_DESTROY:
-					if (eatenWnd == nullptr)
-						RegisterRaw(nullptr);
 					Uninitialize();
 					break;
 			}
 
-			if (eatenWndProc)
-				return CallWindowProc(eatenWndProc, hWnd, uMsg, wParam, lParam);
-			//else
-			//	return DefWindowProc(hWnd, uMsg, wParam, lParam);
-			return 0;
-		}
-
-		static LRESULT CALLBACK HookProc(INT code, WPARAM wParam, LPARAM lParam)
-		{
-			MSG* msg = reinterpret_cast<MSG*>(lParam);
-
-			//Console.Warning("hook: %d, %d, %d\n", code, wParam, lParam);
-			if (code == HC_ACTION)
-				RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-			return CallNextHookEx(hHook, code, wParam, lParam);
-		}
-
-		static LRESULT CALLBACK HookWndProc(INT code, WPARAM wParam, LPARAM lParam)
-		{
-			MSG* msg = reinterpret_cast<MSG*>(lParam);
-
-			//Console.Warning("hook: %d, %d, %d\n", code, wParam, lParam);
-			if (code == HC_ACTION)
-				MyWndProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-			return CallNextHookEx(hHookWnd, code, wParam, lParam);
-		}
-
-		static LRESULT CALLBACK KBHookProc(INT code, WPARAM wParam, LPARAM lParam)
-		{
-			Console.Warning("kb hook: %d, %zd, %zd\n", code, wParam, lParam);
-			KBDLLHOOKSTRUCT* kb = reinterpret_cast<KBDLLHOOKSTRUCT*>(lParam);
-			//if(code == HC_ACTION)
-			//	RawInputProc(msg->hwnd, msg->message, msg->wParam, msg->lParam);
-			return CallNextHookEx(0, code, wParam, lParam);
+			return CONTINUE_BLISSFULLY;
 		}
 
 		int Initialize(void* ptr)
 		{
-			HWND hWnd = reinterpret_cast<HWND>(ptr);
+			skipInput = false;
+			// Reinitialized without USBclose, like when disc swapping
+			if (inited)
+				return 1;
+
+			HWND hWnd = static_cast<HWND>(ptr);
 			if (!InitHid())
 				return 0;
 
-#if 0
-	if (!RegisterRaw(hWnd))
-		return 0;
-	hHook = SetWindowsHookEx(WH_GETMESSAGE, HookProc, hInst, 0);
-	//hHookWnd = SetWindowsHookEx(WH_CALLWNDPROC, HookWndProc, hInst, 0);
-	//hHookKB = SetWindowsHookEx(WH_KEYBOARD_LL, KBHookProc, hInst, 0);
-	//int err = GetLastError();
-#else
-			eatenWnd = hWnd;
-			eatenWndProc = (WNDPROC)SetWindowLongPtr(hWnd, GWLP_WNDPROC, (LONG_PTR)RawInputProc);
 			RegisterRaw(hWnd);
-#endif
+			hWndGSProc.SetWndHandle(hWnd);
+			hWndGSProc.Eat(RawInputProc, 0);
+			inited = true;
 			return 1;
 		}
 
 		void Uninitialize()
 		{
-			if (hHook)
-			{
-				UnhookWindowsHookEx(hHook);
-				//UnhookWindowsHookEx(hHookKB);
-				hHook = 0;
-			}
-			if (eatenWnd)
-				RegisterRaw(nullptr);
-			if (eatenWnd && eatenWndProc)
-				SetWindowLongPtr(eatenWnd, GWLP_WNDPROC, (LONG_PTR)eatenWndProc);
-			eatenWndProc = nullptr;
-			eatenWnd = nullptr;
+			if (!inited)
+				return;
+			RegisterRaw(nullptr);
+			hWndGSProc.ReleaseExtraProc(RawInputProc);
+			inited = false;
 		}
 
 	} // namespace rawinput
