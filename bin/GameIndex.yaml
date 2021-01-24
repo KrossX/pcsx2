@@ -1924,6 +1924,8 @@ SCES-52677:
   name: "Network Access Disc & Hardware - Online Arena"
   region: "PAL-M7"
   compat: 5
+  speedHacks:
+    InstantVU1SpeedHack: 1  # Fixes not rendering most the screen
   patches:
     default:
       content: |-
@@ -6872,18 +6874,6 @@ SLES-50423:
   name: "F1 2001"
   region: "PAL-M4"
   compat: 5
-  patches:
-    063FF7DB:
-      content: |-
-        author=prafull
-        // Skips IPU videos.
-        // Each videos can be called separately
-        // on this game.
-        // This seems like the only way of patching
-        // them all. The issue here is the PCSX2 IPU
-        // do not support well the EA proprietary IPU
-        // Library causing hanging in menus.
-        patch=1,EE,001f4d2c,word,00000000
 SLES-50424:
   name: "Cricket 2002"
   region: "PAL-E"
@@ -7782,13 +7772,6 @@ SLES-50874:
   name: "F1 2002"
   region: "PAL-M4"
   compat: 5
-  patches:
-    A0ED2D23:
-      content: |-
-        comment=Patch by Prafull
-        // Fixes controller issue but skips videos.
-        patch=0,EE,002d8568,word,03e00008
-        patch=0,EE,002d856c,word,00000000
 SLES-50875:
   name: "F1 2002"
   region: "PAL-I"
@@ -11241,9 +11224,11 @@ SLES-52711:
   patches:
     958e5086:
       content: |-
-        comment=Patch by Prafull
-        // Sheep screen freeze fix.
-        patch=1,EE,001c83a4,word,00000000
+        comment=Patch by refraction
+        // Game has a bug in it, where it's supposed to wait for the GS transfers/drawing to finish
+        // in order to reverse the FIFO to download data from the GS, but they got the condition backwards
+        // so their code was waiting for it to NOT finish. Lucky it even worked on a PS2.
+        patch=1,EE,001c83a4,word,1462fffa
 SLES-52713:
   name: "NBA Live 2005"
   region: "PAL-M3"
@@ -12086,16 +12071,10 @@ SLES-53098:
 SLES-53099:
   name: "Pilot Down - Behind Enemy Lines"
   region: "PAL-M5"
+  gameFixes:
+    - DMABusyHack # Game has weird DMA handling, this allows required DMA's to finish.
   roundModes:
     vuRoundMode: 0
-  patches:
-    53BB63A0:
-      content: |-
-        author=kozarovv
-        // Patch allow sending VU1 mpg successfully. This fix missing graphic. Thanks to PSI for figuring what is wrong.
-        // Game need at least -2 EE cyclerate + MTVU on my pc to get full speed.
-        // To fix shadows set VU rounding to nearest - thx Atomic83
-        patch=1,EE,00426140,word,00000000
 SLES-53100:
   name: "Scooby Doo! Unmasked"
   region: "PAL-M4"
@@ -12563,9 +12542,13 @@ SLES-53393:
   name: "Spartan Total Warrior"
   region: "PAL-M5"
   compat: 5
+  gameFixes:
+    - VU0KickstartHack # Fixes Character SPS.
 SLES-53396:
   name: "Spartan Total Warrior"
   region: "PAL-M3"
+  gameFixes:
+    - VU0KickstartHack # Fixes Character SPS.
 SLES-53398:
   name: "Zombie Zone"
   region: "PAL-E"
@@ -13424,15 +13407,6 @@ SLES-53744:
 SLES-53746:
   name: "Superman Returns"
   region: "PAL-E"
-  patches:
-    E8F7BAB6:
-      content: |-
-        author=kozarovv
-        // Fix sps and various graphical issues by Using iaddiu instead of FSAND
-        // require preload frame data and crc hack atleast minimum for GSDX HW
-        patch=1,EE,00639Ef0,word,10050208
-        patch=1,EE,0063a068,word,10080208
-        patch=1,EE,0063D488,word,10020208
 SLES-53747:
   name: "Ed, Edd, 'n Eddy - The Misadventure"
   region: "PAL-E"
@@ -14606,28 +14580,12 @@ SLES-54348:
 SLES-54349:
   name: "Superman Returns"
   region: "PAL-I"
-  patches:
-    E7F7B6BD:
-      content: |-
-        author=kozarovv
-        // Use iaddiu instead of FSAND.
-        patch=1,EE,00639ef0,word,10050208
-        patch=1,EE,0063a068,word,10080208
 SLES-54350:
   name: "Superman Returns"
   region: "PAL-G"
 SLES-54351:
   name: "Superman Returns"
   region: "PAL-S"
-  patches:
-    EDF0A0A7:
-      content: |-
-        author=kozarovv
-        // Fix sps and various graphical issues by Using iaddiu instead of FSAND
-        // require preload frame data and crc hack atleast minimum for GSDX HW
-        patch=1,EE,00639Ef0,word,10050208
-        patch=1,EE,0063a068,word,10080208
-        patch=1,EE,0063D488,word,10020208
 SLES-54354:
   name: "Final Fantasy XII"
   region: "PAL-E"
@@ -16888,6 +16846,8 @@ SLES-55470:
 SLES-55472:
   name: "Guitar Hero - Metalica"
   region: "PAL-M5"
+  roundModes:
+    vuRoundMode: 0  # Crashes without.
 SLES-55474:
   name: "Shin Megami Tensei: Persona 4"
   region: "PAL-E"
@@ -19505,14 +19465,6 @@ SLPM-62524:
   name: "Simple 2000 Series Vol.59 - The Uchyujin to Hanashi Sou!"
   region: "NTSC-J"
   compat: 5
-  patches:
-    85E92C92:
-      content: |-
-        // Skip videos (custom).
-        patch=0,EE,001b4cd8,word,00000000
-        // Skip videos (custom).
-        patch=0,EE,001b4c90,word,03e00008
-        patch=0,EE,001b4c94,word,00000000
 SLPM-62525:
   name: "Simple 2000 Series Vol.61 - The O-Ane-Chan-Bara"
   region: "NTSC-J"
@@ -20217,6 +20169,9 @@ SLPM-64502:
     vuClampMode: 3  # Fixes missing 3D polygons when going ingame.
 SLPM-64504:
   name: "Maximo"
+  region: "NTSC-K"
+SLPM-64513:
+  name: "Crash Bandicoot: Return of the Demon King"
   region: "NTSC-K"
 SLPM-64522:
   name: "La Pucelle"
@@ -22464,8 +22419,6 @@ SLPM-65752:
     A70549D6:
       content: |-
         comment=Patch by Prafull, Jelta
-        // New patch fixes most issues.
-        patch=0,EE,003A95B8,word,00000000
         // Fix hang at Level 4.
         patch=0,EE,0037B264,word,03e00008
         patch=0,EE,0037B268,word,00000000
@@ -24582,6 +24535,8 @@ SLPM-66443:
 SLPM-66444:
   name: "Spartan - Total Warrior"
   region: "NTSC-J"
+  gameFixes:
+    - VU0KickstartHack # Fixes Character SPS.
 SLPM-66445:
   name: "Persona 3"
   region: "NTSC-J"
@@ -32010,18 +31965,6 @@ SLUS-20263:
 SLUS-20264:
   name: "F1 2001"
   region: "NTSC-U"
-  patches:
-    2870c248:
-      content: |-
-        author=Prafull
-        // Skips IPU videos.
-        // Each video can be called separately
-        // on this game.
-        // This seems like the only way of patching
-        // them all. The issue here is the PCSX2 IPU
-        // do not support well the EA proprietary IPU
-        // Library causing hanging in menus.
-        patch=1,EE,001f4d2c,word,00000000
 SLUS-20265:
   name: "James Bond 007 - Agent Under Fire"
   region: "NTSC-U"
@@ -32640,6 +32583,14 @@ SLUS-20412:
   name: "Hot Wheels - Velocity X"
   region: "NTSC-U"
   compat: 5
+  patches:
+    E7273BFA:
+      content: |-
+        comment=COP2 DIV Rearrangement to fix SPS
+        patch=0,EE,0023DB00,word,4BE0A39C
+        patch=0,EE,0023DB04,word,4A6F03BC
+        patch=0,EE,0023DB0C,word,4BE0ABDC
+        patch=0,EE,0023DB10,word,4A7003BC
 SLUS-20413:
   name: "Shadow Man - 2econd Coming"
   region: "NTSC-U"
@@ -32675,6 +32626,19 @@ SLUS-20419:
   region: "NTSC-U"
   roundModes:
     eeRoundMode: 0  # Fixes crash when using the Subaru.
+  gameFixes:
+    - XGKickHack # Fixes SPS while ingame (with following patch)
+  patches:
+    5838E074:
+      content: |-
+        author=kozarovv
+        // Rearrange XGKick timing to fix SPS
+        patch=1,EE,0020efa0,word,8000033c
+        patch=1,EE,0020efd8,word,80004efc
+        patch=1,EE,0020f040,word,8000033c
+        patch=1,EE,0020f0b0,word,80004efc
+        patch=1,EE,0020f118,word,8000033c
+        patch=1,EE,0020f188,word,80004efc     
 SLUS-20420:
   name: "Star Wars - Bounty Hunter"
   region: "NTSC-U"
@@ -32810,13 +32774,6 @@ SLUS-20454:
 SLUS-20455:
   name: "F1 2002"
   region: "NTSC-U"
-  patches:
-    8FF059A1:
-      content: |-
-        comment=Patch by Prafull
-        // Fixes controller issue but skips videos.
-        patch=0,EE,002d8c58,word,03e00008
-        patch=0,EE,002d8c5c,word,00000000
 SLUS-20456:
   name: "Soccer Mania"
   region: "NTSC-U"
@@ -34907,8 +34864,6 @@ SLUS-20961:
     08901101:
       content: |-
         comment=Patch by Prafull
-        // New patch fixes most issues.
-        patch=0,EE,003a94f8,word,00000000
         // Fix hang at Level 4.
         patch=0,EE,0037b1a4,word,03e00008
         patch=0,EE,0037b1a8,word,00000000
@@ -35976,6 +35931,8 @@ SLUS-21212:
   name: "Spartan - Total Warrior"
   region: "NTSC-U"
   compat: 5
+  gameFixes:
+    - VU0KickstartHack # Fixes Character SPS.
 SLUS-21213:
   name: "Madden NFL '06"
   region: "NTSC-U"
@@ -37022,15 +36979,6 @@ SLUS-21434:
   name: "Superman Returns - The Video Game"
   region: "NTSC-U"
   compat: 4
-  patches:
-    E1BF5DCA:
-      content: |-
-        author=kozarovv
-        // Fix sps and various graphical issues by Using iaddiu instead of FSAND
-        // require preload frame data and crc hack atleast minimum for GSDX HW
-        patch=1,EE,00639E70,word,10050208
-        patch=1,EE,00639FE8,word,10080208
-        patch=1,EE,0063D408,word,10020208
 SLUS-21435:
   name: "One Piece - Grand Adventure"
   region: "NTSC-U"
@@ -38569,6 +38517,8 @@ SLUS-21843:
   name: "Guitar Hero - Metallica"
   region: "NTSC-U"
   compat: 5
+  roundModes:
+    vuRoundMode: 0  # Crashes without.
 SLUS-21844:
   name: "Bolt"
   region: "NTSC-U"

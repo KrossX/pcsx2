@@ -662,6 +662,11 @@ void Pcsx2App::HandleEvent(wxEvtHandler* handler, wxEventFunction func, wxEvent&
 		// Saved state load failed prior to the system getting corrupted (ie, file not found
 		// or some zipfile error) -- so log it and resume emulation.
 		Console.Warning( ex.FormatDiagnosticMessage() );
+#ifndef DISABLE_RECORDING
+		if (g_InputRecording.IsInitialLoad())
+			g_InputRecording.FailedSavestate();
+#endif
+
 		CoreThread.Resume();
 	}
 	// ----------------------------------------------------------------------------
@@ -1020,7 +1025,11 @@ void Pcsx2App::OpenGsPanel()
 	gsFrame->ShowFullScreen( g_Conf->GSWindow.IsFullscreen );
 
 #ifndef DISABLE_RECORDING
-	// Disable recording controls that only make sense if the game is running
+	// Enable New & Play after the first game load of the session
+	sMainFrame.enableRecordingMenuItem(MenuId_Recording_New, !g_InputRecording.IsActive());
+	sMainFrame.enableRecordingMenuItem(MenuId_Recording_Play, true);
+
+	// Enable recording menu options as the game is now running
 	sMainFrame.enableRecordingMenuItem(MenuId_Recording_FrameAdvance, true);
 	sMainFrame.enableRecordingMenuItem(MenuId_Recording_TogglePause, true);
 	sMainFrame.enableRecordingMenuItem(MenuId_Recording_ToggleRecordingMode, g_InputRecording.IsActive());
@@ -1138,7 +1147,8 @@ protected:
 
 		CoreThread.ResetQuick();
 		symbolMap.Clear();
-		CBreakPoints::SetSkipFirst(0);
+		CBreakPoints::SetSkipFirst(BREAKPOINT_EE, 0);
+		CBreakPoints::SetSkipFirst(BREAKPOINT_IOP, 0);
 
 		CDVDsys_SetFile(CDVD_SourceType::Iso, g_Conf->CurrentIso );
 		if( m_UseCDVDsrc )

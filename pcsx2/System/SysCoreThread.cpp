@@ -167,7 +167,7 @@ void SysCoreThread::ApplySettings(const Pcsx2Config& src)
 	if (src == EmuConfig)
 		return;
 
-	if (!pxAssertDev(IsPaused(), "CoreThread is not paused; settings cannot be applied."))
+	if (!pxAssertDev(IsPaused() | IsSelf(), "CoreThread is not paused; settings cannot be applied."))
 		return;
 
 	m_resetRecompilers = (src.Cpu != EmuConfig.Cpu) || (src.Gamefixes != EmuConfig.Gamefixes) || (src.Speedhacks != EmuConfig.Speedhacks);
@@ -294,7 +294,7 @@ void SysCoreThread::DoCpuExecute()
 
 void SysCoreThread::ExecuteTaskInThread()
 {
-	Threading::EnableHiresScheduler(); // Note that *something* in SPU2-X and GSdx also set the timer resolution to 1ms.
+	Threading::EnableHiresScheduler(); // Note that *something* in SPU2 and GSdx also set the timer resolution to 1ms.
 	m_sem_event.WaitWithoutYield();
 
 	m_mxcsr_saved.bitmask = _mm_getcsr();
@@ -326,7 +326,6 @@ void SysCoreThread::OnResumeInThread(bool isSuspended)
 	GetCorePlugins().Open();
 	if (isSuspended)
 	{
-		DoCDVDopen();
 		DEV9open((void*)pDsp);
 		USBopen((void*)pDsp);
 	}
