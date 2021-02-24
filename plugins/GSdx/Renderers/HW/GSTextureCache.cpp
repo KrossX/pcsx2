@@ -24,6 +24,7 @@
 #include "GSRendererHW.h"
 #include "GSUtil.h"
 
+bool s_IS_DIRECT3D9 = false;
 bool GSTextureCache::m_disable_partial_invalidation = false;
 bool GSTextureCache::m_wrap_gs_mem = false;
 
@@ -31,6 +32,8 @@ GSTextureCache::GSTextureCache(GSRenderer* r)
 	: m_renderer(r)
 	, m_palette_map(r)
 {
+	s_IS_DIRECT3D9 = theApp.GetCurrentRendererType() == GSRendererType::DX9_HW;
+
 	if (theApp.GetConfigB("UserHacks")) {
 		UserHacks_HalfPixelOffset      = theApp.GetConfigI("UserHacks_HalfPixelOffset") == 1;
 		m_preload_frame                = theApp.GetConfigB("preload_frame_with_gs_data");
@@ -50,6 +53,7 @@ GSTextureCache::GSTextureCache(GSRenderer* r)
 	}
 
 	m_paltex = theApp.GetConfigB("paltex");
+	m_can_convert_depth &= !s_IS_DIRECT3D9;
 	m_crc_hack_level = theApp.GetConfigT<CRCHackLevel>("crc_hack_level");
 	if (m_crc_hack_level == CRCHackLevel::Automatic)
 		m_crc_hack_level = GSUtil::GetRecommendedCRCHackLevel(theApp.GetCurrentRendererType());
@@ -1263,7 +1267,7 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 		// TODO: clean up this mess
 
 		int shader = dst->m_type != RenderTarget ? ShaderConvert_FLOAT32_TO_RGBA8 : ShaderConvert_COPY;
-		bool is_8bits = TEX0.PSM == PSM_PSMT8;
+		bool is_8bits = TEX0.PSM == PSM_PSMT8 && !s_IS_DIRECT3D9;
 
 		if (is_8bits) {
 			GL_INS("Reading RT as a packed-indexed 8 bits format");
@@ -1288,6 +1292,15 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 		src->m_end_block = dst->m_end_block;
 
 		dst->Update();
+
+		GSTexture* tmp = NULL;
+
+		if (dst->m_texture->IsMSAA())
+		{
+			tmp = dst->m_texture;
+
+			dst->m_texture = m_renderer->m_dev->Resolve(dst->m_texture);
+		}
 
 		// do not round here!!! if edge becomes a black pixel and addressing mode is clamp => everything outside the clamped area turns into black (kh2 shadows)
 
@@ -1475,6 +1488,14 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 		else
 			ASSERT(0);
 
+		if(tmp != NULL)
+		{
+			// tmp is the texture before a MultiSample resolve
+			m_renderer->m_dev->Recycle(dst->m_texture);
+
+			dst->m_texture = tmp;
+		}
+
 		// Offset hack. Can be enabled via GSdx options.
 		// The offset will be used in Draw().
 
@@ -1540,13 +1561,13 @@ GSTextureCache::Target* GSTextureCache::CreateTarget(const GIFRegTEX0& TEX0, int
 
 	if(type == RenderTarget)
 	{
-		t->m_texture = m_renderer->m_dev->CreateSparseRenderTarget(w, h);
+		t->m_texture = m_renderer->m_dev->CreateSparseRenderTarget(w, h, 0, true);
 
 		t->m_used = true; // FIXME
 	}
 	else if(type == DepthStencil)
 	{
-		t->m_texture = m_renderer->m_dev->CreateSparseDepthStencil(w, h);
+		t->m_texture = m_renderer->m_dev->CreateSparseDepthStencil(w, h, 0, true);
 	}
 
 	m_dst[type].push_front(t);

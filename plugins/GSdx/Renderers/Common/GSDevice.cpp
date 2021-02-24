@@ -119,7 +119,7 @@ void GSDevice::Present(GSTexture* sTex, GSTexture* dTex, const GSVector4& dRect,
 	StretchRect(sTex, dTex, dRect, shader, m_linear_present);
 }
 
-GSTexture* GSDevice::FetchSurface(int type, int w, int h, int format)
+GSTexture* GSDevice::FetchSurface(int type, int w, int h, int format, bool msaa)
 {
 	const GSVector2i size(w, h);
 
@@ -127,7 +127,7 @@ GSTexture* GSDevice::FetchSurface(int type, int w, int h, int format)
 	{
 		GSTexture* t = *i;
 
-		if(t->GetType() == type && t->GetFormat() == format && t->GetSize() == size)
+		if(t->GetType() == type && t->GetFormat() == format && t->GetSize() == size && t->IsMSAA() == msaa)
 		{
 			m_pool.erase(i);
 
@@ -135,7 +135,7 @@ GSTexture* GSDevice::FetchSurface(int type, int w, int h, int format)
 		}
 	}
 
-	return CreateSurface(type, w, h, format);
+	return CreateSurface(type, w, h, format, msaa);
 }
 
 void GSDevice::PrintMemoryUsage()
@@ -207,24 +207,24 @@ void GSDevice::PurgePool()
 	}
 }
 
-GSTexture* GSDevice::CreateSparseRenderTarget(int w, int h, int format)
+GSTexture* GSDevice::CreateSparseRenderTarget(int w, int h, int format, bool msaa)
 {
-	return FetchSurface(HasColorSparse() ? GSTexture::SparseRenderTarget : GSTexture::RenderTarget, w, h, format);
+	return FetchSurface(HasColorSparse() ? GSTexture::SparseRenderTarget : GSTexture::RenderTarget, w, h, format, msaa);
 }
 
-GSTexture* GSDevice::CreateSparseDepthStencil(int w, int h, int format)
+GSTexture* GSDevice::CreateSparseDepthStencil(int w, int h, int format, bool msaa)
 {
-	return FetchSurface(HasDepthSparse() ? GSTexture::SparseDepthStencil : GSTexture::DepthStencil, w, h, format);
+	return FetchSurface(HasDepthSparse() ? GSTexture::SparseDepthStencil : GSTexture::DepthStencil, w, h, format, msaa);
 }
 
-GSTexture* GSDevice::CreateRenderTarget(int w, int h, int format)
+GSTexture* GSDevice::CreateRenderTarget(int w, int h, int format, bool msaa)
 {
-	return FetchSurface(GSTexture::RenderTarget, w, h, format);
+	return FetchSurface(GSTexture::RenderTarget, w, h, format, msaa);
 }
 
-GSTexture* GSDevice::CreateDepthStencil(int w, int h, int format)
+GSTexture* GSDevice::CreateDepthStencil(int w, int h, int format, bool msaa)
 {
-	return FetchSurface(GSTexture::DepthStencil, w, h, format);
+	return FetchSurface(GSTexture::DepthStencil, w, h, format, msaa);
 }
 
 GSTexture* GSDevice::CreateTexture(int w, int h, int format)
@@ -261,7 +261,7 @@ void GSDevice::Merge(GSTexture* sTex[3], GSVector4* sRect, GSVector4* dRect, con
 		{
 			if(sTex[i] != NULL)
 			{
-				tex[i] = sTex[i];
+				tex[i] = sTex[i]->IsMSAA() ? Resolve(sTex[i]) : sTex[i];
 			}
 		}
 
@@ -417,6 +417,14 @@ GSAdapter::GSAdapter(const DXGI_ADAPTER_DESC1 &desc_dxgi)
 	, device(desc_dxgi.DeviceId)
 	, subsys(desc_dxgi.SubSysId)
 	, rev(desc_dxgi.Revision)
+{
+}
+
+GSAdapter::GSAdapter(const D3DADAPTER_IDENTIFIER9 &desc_d3d9)
+	: vendor(desc_d3d9.VendorId)
+	, device(desc_d3d9.DeviceId)
+	, subsys(desc_d3d9.SubSysId)
+	, rev(desc_d3d9.Revision)
 {
 }
 #endif

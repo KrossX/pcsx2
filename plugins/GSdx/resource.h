@@ -20,6 +20,10 @@
 #define IDC_HACKSBUTTON                 2015
 #define IDC_OSDBUTTON                   2016
 #define IDC_SHADEBUTTON                 2017
+#define IDC_OPENCL_DEVICE               2018
+#define IDC_OPENCL_TEXT                 2019
+#define IDB_LOGO9                       2020
+#define IDC_LOGO9                       2021
 // Hardware Renderer Settings:
 #define IDC_PALTEX                      2030
 #define IDC_CONSERVATIVE_FB             2031
@@ -38,6 +42,8 @@
 #define IDC_ACCURATE_BLEND_UNIT_TEXT    2044
 #define IDC_DITHERING                   2045
 #define IDC_DITHERING_TEXT              2046
+#define IDC_FBA                         2050
+#define IDC_LOGZ                        2051
 // Software Renderer Settings:
 #define IDC_MIPMAP_SW                   2060
 #define IDC_AA1                         2061
@@ -85,6 +91,8 @@
 #define IDC_SKIPDRAWOFFSETEDIT          2127
 #define IDC_HALF_SCREEN_TS              2128
 #define IDC_HALF_SCREEN_TS_TEXT         2129
+#define IDC_MSAACB                      2135
+#define IDC_MSAA_TEXT                   2136
 // Shader:
 #define IDC_SHADEBOOST                  2140
 #define IDC_FXAA                        2141
@@ -155,6 +163,13 @@
 #define IDR_TFX_VGS_GLSL                10016
 #define IDR_TFX_FS_GLSL                 10017
 #define IDR_FONT_ROBOTO                 10018
+#define IDR_CONVERT_FX9                 20000
+#define IDR_TFX_FX9                     20001
+#define IDR_MERGE_FX9                   20002
+#define IDR_INTERLACE_FX9               20003
+#define IDR_FXAA_FX9                    20004
+#define IDR_SHADEBOOST_FX9              20007
+#define IDR_TFX_CL9                     20008
 #define IDC_STATIC                      -1
 
 // Next default values for new objects

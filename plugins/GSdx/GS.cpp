@@ -31,6 +31,8 @@
 
 #ifdef _WIN32
 
+#include "Renderers/DX9/GSRendererDX9.h"
+#include "Renderers/DX9/GSDevice9.h"
 #include "Renderers/DX11/GSRendererDX11.h"
 #include "Renderers/DX11/GSDevice11.h"
 #include "Window/GSWndDX.h"
@@ -62,7 +64,8 @@ static void (*s_irq)() = NULL;
 static uint8* s_basemem = NULL;
 static int s_vsync = 0;
 static bool s_exclusive = true;
-static std::string s_renderer_name;
+static const char* s_renderer_name = "";
+static const char* s_renderer_type = "";
 bool gsopen_done = false; // crash guard for GSgetTitleInfo2 and GSKeyEvent (replace with lock?)
 
 EXPORT_C_(uint32) PS2EgetLibType()
@@ -298,36 +301,55 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 			}
 		}
 
-		std::string renderer_name;
+		const char* renderer_fullname = "";
+		const char* renderer_mode = "";
+
+		switch (renderer)
+		{
+		case GSRendererType::DX9_SW:
+		case GSRendererType::DX1011_SW:
+		case GSRendererType::OGL_SW:
+			renderer_mode = "(Software renderer)";
+			break;
+		case GSRendererType::Null:
+			renderer_mode = "(Null renderer)";
+			break;
+		default:
+			renderer_mode = "(Hardware renderer)";
+			break;
+		}
 
 		switch (renderer)
 		{
 		default:
 #ifdef _WIN32
+		case GSRendererType::DX9_HW:
+		case GSRendererType::DX9_SW:
+			dev = new GSDevice9();
+			s_renderer_name = " D3D9";
+			renderer_fullname = "Direct3D 9";
+			break;
 		case GSRendererType::DX1011_HW:
+		case GSRendererType::DX1011_SW:
 			dev = new GSDevice11();
 			s_renderer_name = "D3D11";
-			renderer_name = "Direct3D 11";
+			renderer_fullname = "Direct3D 11";
 			break;
 #endif
 		case GSRendererType::OGL_HW:
-			dev = new GSDeviceOGL();
-			s_renderer_name = "OGL";
-			renderer_name = "OpenGL";
-			break;
 		case GSRendererType::OGL_SW:
 			dev = new GSDeviceOGL();
-			s_renderer_name = "SW";
-			renderer_name = "Software";
+			s_renderer_name = "OGL";
+			renderer_fullname = "OpenGL";
 			break;
 		case GSRendererType::Null:
 			dev = new GSDeviceNull();
 			s_renderer_name = "NULL";
-			renderer_name = "Null";
+			renderer_fullname = "Null";
 			break;
 		}
 
-		printf("Current Renderer: %s\n", renderer_name.c_str());
+		printf("Current Renderer: %s %s\n", renderer_fullname, renderer_mode);
 
 		if (dev == NULL)
 		{
@@ -340,18 +362,28 @@ static int _GSopen(void** dsp, const char* title, GSRendererType renderer, int t
 			{
 			default:
 #ifdef _WIN32
+			case GSRendererType::DX9_HW:
+				s_gs = (GSRenderer*)new GSRendererDX9();
+				s_renderer_type = " HW";
+				break;
 			case GSRendererType::DX1011_HW:
+				s_renderer_type = " HW";
 				s_gs = (GSRenderer*)new GSRendererDX11();
 				break;
 #endif
 			case GSRendererType::OGL_HW:
+				s_renderer_type = " HW";
 				s_gs = (GSRenderer*)new GSRendererOGL();
 				break;
+			case GSRendererType::DX9_SW:
+			case GSRendererType::DX1011_SW:
 			case GSRendererType::OGL_SW:
 				s_gs = new GSRendererSW(threads);
+				s_renderer_type = " SW";
 				break;
 			case GSRendererType::Null:
 				s_gs = new GSRendererNull();
+				s_renderer_type = "";
 				break;
 			}
 			if (s_gs == NULL)
@@ -413,47 +445,38 @@ EXPORT_C_(int) GSopen2(void** dsp, uint32 flags)
 {
 	static bool stored_toggle_state = false;
 	const bool toggle_state = !!(flags & 4);
-	GSRendererType current_renderer = static_cast<GSRendererType>(flags >> 24);
-	if (current_renderer == GSRendererType::NO_RENDERER)
-		current_renderer = theApp.GetCurrentRendererType();
 
-	if (current_renderer != GSRendererType::Undefined && stored_toggle_state != toggle_state)
+	GSRendererType renderer = static_cast<GSRendererType>(flags >> 24);
+	if (renderer == GSRendererType::NO_RENDERER)
+		renderer = theApp.GetCurrentRendererType();
+
+	if (renderer != GSRendererType::Undefined && stored_toggle_state != toggle_state)
 	{
-		// SW -> HW and HW -> SW (F9 Switch)
-		switch (current_renderer)
-		{
-			#ifdef _WIN32
-			case GSRendererType::DX1011_HW:
-				current_renderer = GSRendererType::OGL_SW;
-				break;
-			#endif
-			case GSRendererType::OGL_SW:
-			#ifdef _WIN32
-			{
-				const auto config_renderer = static_cast<GSRendererType>(
-					theApp.GetConfigI("Renderer")
-				);
-
-				if (current_renderer == config_renderer)
-					current_renderer = GSUtil::GetBestRenderer();
-				else
-					current_renderer = config_renderer;
-			}
-			#else
-				current_renderer = GSRendererType::OGL_HW;
-			#endif
-				break;
-			case GSRendererType::OGL_HW:
-				current_renderer = GSRendererType::OGL_SW;
-				break;
-			default:
-				current_renderer = GSRendererType::OGL_SW;
-				break;
+#ifdef _WIN32
+		switch (renderer) {
+			// Use alternative renderer (SW if currently using HW renderer, and vice versa, keeping the same API and API version)
+			case GSRendererType::DX9_SW: renderer = GSRendererType::DX9_HW; break;
+			case GSRendererType::DX9_HW: renderer = GSRendererType::DX9_SW; break;
+			case GSRendererType::DX1011_SW: renderer = GSRendererType::DX1011_HW; break;
+			case GSRendererType::DX1011_HW: renderer = GSRendererType::DX1011_SW; break;
+			case GSRendererType::OGL_SW: renderer = GSRendererType::OGL_HW; break;
+			case GSRendererType::OGL_HW: renderer = GSRendererType::OGL_SW; break;
+			default: renderer = GSRendererType::DX1011_SW; break; // If wasn't using one of the above mentioned ones, use best SW renderer.
 		}
+
+#endif
+#if defined(__unix__)
+		switch(renderer) {
+			// Use alternative renderer (SW if currently using HW renderer, and vice versa)
+		case GSRendererType::OGL_SW: renderer = GSRendererType::OGL_HW; break;
+		case GSRendererType::OGL_HW: renderer = GSRendererType::OGL_SW; break;
+		default: renderer = GSRendererType::OGL_SW; break; // fallback to OGL SW
+		}
+#endif
 	}
 	stored_toggle_state = toggle_state;
 
-	int retval = _GSopen(dsp, "", current_renderer);
+	int retval = _GSopen(dsp, "", renderer);
 
 	if (s_gs != NULL)
 		s_gs->SetAspectRatio(0);	 // PCSX2 manages the aspect ratios
@@ -474,6 +497,9 @@ EXPORT_C_(int) GSopen(void** dsp, const char* title, int mt)
 	if(mt == 2)
 	{
 		// pcsx2 sent a switch renderer request
+#ifdef _WIN32
+		renderer = GSUtil::CheckDirect3D11Level() >= D3D_FEATURE_LEVEL_10_0 ? GSRendererType::DX1011_SW : GSRendererType::DX9_SW;
+#endif
 		mt = 1;
 	}
 	else
@@ -857,7 +883,8 @@ EXPORT_C GSgetLastTag(uint32* tag)
 EXPORT_C GSgetTitleInfo2(char* dest, size_t length)
 {
 	std::string s;
-	s.append(s_renderer_name);
+	s.append(s_renderer_name).append(s_renderer_type);
+
 	// TODO: this gets called from a different thread concurrently with GSOpen (on linux)
 	if (gsopen_done && s_gs != NULL && s_gs->m_GStitleInfoBuffer[0])
 	{

@@ -21,22 +21,30 @@
 
 #pragma once
 
-#include "Renderers/Common/GSDevice.h"
-#include "GSTextureNull.h"
+#include "Renderers/Common/GSTexture.h"
 
-class GSDeviceNull : public GSDevice
+class GSTexture9 : public GSTexture
 {
-private:
-	GSTexture* CreateSurface(int type, int w, int h, int format, bool msaa = false);
+	CComPtr<IDirect3DDevice9> m_dev;
+	CComPtr<IDirect3DSurface9> m_surface;
+	CComPtr<IDirect3DTexture9> m_texture;
+	D3DSURFACE_DESC m_desc;
 
-	void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, const GSVector4& c) {}
-	void DoInterlace(GSTexture* sTex, GSTexture* dTex, int shader, bool linear, float yoffset = 0) {}
-	uint16 ConvertBlendEnum(uint16 generic) { return 0xFFFF; }
+	bool m_generate_mipmap;
+
+	int m_layer;
+	int m_max_layer;
 
 public:
-	GSDeviceNull() {}
+	explicit GSTexture9(IDirect3DSurface9* surface);
+	explicit GSTexture9(IDirect3DTexture9* texture);
+	virtual ~GSTexture9();
 
-	bool Create(const std::shared_ptr<GSWnd> &wnd);
-	bool Reset(int w, int h);
+	bool Update(const GSVector4i& r, const void* data, int pitch, int layer = 0);
+	bool Map(GSMap& m, const GSVector4i* r = NULL, int layer = 0);
+	void Unmap();
+	bool Save(const std::string& fn);
+
+	operator IDirect3DSurface9*();
+	operator IDirect3DTexture9*();
 };
-

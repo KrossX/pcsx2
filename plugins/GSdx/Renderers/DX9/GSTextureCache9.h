@@ -21,22 +21,19 @@
 
 #pragma once
 
-#include "Renderers/Common/GSDevice.h"
-#include "GSTextureNull.h"
+#include "Renderers/HW/GSTextureCache.h"
+#include "GSDevice9.h"
 
-class GSDeviceNull : public GSDevice
+class GSTextureCache9 : public GSTextureCache
 {
-private:
-	GSTexture* CreateSurface(int type, int w, int h, int format, bool msaa = false);
+protected:
+	int Get8bitFormat() {return D3DFMT_A8;}
 
-	void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, const GSVector4& c) {}
-	void DoInterlace(GSTexture* sTex, GSTexture* dTex, int shader, bool linear, float yoffset = 0) {}
-	uint16 ConvertBlendEnum(uint16 generic) { return 0xFFFF; }
+	void Read(Target* t, const GSVector4i& r);
+	void Read(Source* t, const GSVector4i& r);
+
+	virtual bool CanConvertDepth() { return false; }
 
 public:
-	GSDeviceNull() {}
-
-	bool Create(const std::shared_ptr<GSWnd> &wnd);
-	bool Reset(int w, int h);
+	GSTextureCache9(GSRenderer* r);
 };
-

@@ -232,7 +232,10 @@ enum class GSRendererType : int8_t
 {
 	Undefined = -1,
 	NO_RENDERER = 0,
+	DX9_HW,
+	DX9_SW,
 	DX1011_HW = 3,
+	DX1011_SW,
 	Null = 11,
 	OGL_HW = 12,
 	OGL_SW = 13,

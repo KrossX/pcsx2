@@ -39,9 +39,12 @@
 #include <shellapi.h>
 #include <d3dcompiler.h>
 #include <d3d11_1.h>
+#include <d3d9.h>
 #include <dxgi1_3.h>
 #include <comutil.h>
 #include <atlcomcli.h>
+
+#define D3DCOLORWRITEENABLE_RGBA (D3DCOLORWRITEENABLE_RED | D3DCOLORWRITEENABLE_GREEN | D3DCOLORWRITEENABLE_BLUE | D3DCOLORWRITEENABLE_ALPHA)
 
 #else
 
