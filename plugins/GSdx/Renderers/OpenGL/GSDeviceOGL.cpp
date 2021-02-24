@@ -241,7 +241,7 @@ void GSDeviceOGL::GenerateProfilerData()
 	}
 }
 
-GSTexture* GSDeviceOGL::CreateSurface(int type, int w, int h, int fmt)
+GSTexture* GSDeviceOGL::CreateSurface(int type, int w, int h, int fmt, bool msaa)
 {
 	GL_PUSH("Create surface");
 
@@ -272,7 +272,7 @@ GSTexture* GSDeviceOGL::CreateSurface(int type, int w, int h, int fmt)
 	return t;
 }
 
-GSTexture* GSDeviceOGL::FetchSurface(int type, int w, int h, int format)
+GSTexture* GSDeviceOGL::FetchSurface(int type, int w, int h, int format, bool msaa)
 {
 	if (format == 0)
 		format = (type == GSTexture::DepthStencil || type == GSTexture::SparseDepthStencil) ? GL_DEPTH32F_STENCIL8 : GL_RGBA8;

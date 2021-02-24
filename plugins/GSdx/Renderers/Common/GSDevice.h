@@ -171,8 +171,8 @@ protected:
 	unsigned int m_frame; // for ageing the pool
 	bool m_linear_present;
 
-	virtual GSTexture* CreateSurface(int type, int w, int h, int format) = 0;
-	virtual GSTexture* FetchSurface(int type, int w, int h, int format);
+	virtual GSTexture* CreateSurface(int type, int w, int h, int format, bool msaa = false) = 0;
+	virtual GSTexture* FetchSurface(int type, int w, int h, int format, bool msaa = false);
 
 	virtual void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, const GSVector4& c) = 0;
 	virtual void DoInterlace(GSTexture* sTex, GSTexture* dTex, int shader, bool linear, float yoffset) = 0;
@@ -219,13 +219,14 @@ public:
 	virtual void ClearDepth(GSTexture* t) {}
 	virtual void ClearStencil(GSTexture* t, uint8 c) {}
 
-	GSTexture* CreateSparseRenderTarget(int w, int h, int format = 0);
-	GSTexture* CreateSparseDepthStencil(int w, int h, int format = 0);
-	GSTexture* CreateRenderTarget(int w, int h, int format = 0);
-	GSTexture* CreateDepthStencil(int w, int h, int format = 0);
+	GSTexture* CreateSparseRenderTarget(int w, int h, int format = 0, bool msaa = false);
+	GSTexture* CreateSparseDepthStencil(int w, int h, int format = 0, bool msaa = false);
+	GSTexture* CreateRenderTarget(int w, int h, int format = 0, bool msaa = false);
+	GSTexture* CreateDepthStencil(int w, int h, int format = 0, bool msaa = false);
 	GSTexture* CreateTexture(int w, int h, int format = 0);
 	GSTexture* CreateOffscreen(int w, int h, int format = 0);
 
+	virtual GSTexture* Resolve(GSTexture* t) { return NULL; }
 	virtual GSTexture* CopyOffscreen(GSTexture* src, const GSVector4& sRect, int w, int h, int format = 0, int ps_shader = 0) { return NULL; }
 
 	virtual void CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r) {}
@@ -285,6 +286,7 @@ struct GSAdapter
 
 #ifdef _WIN32
 	GSAdapter(const DXGI_ADAPTER_DESC1& desc_dxgi);
+	GSAdapter(const D3DADAPTER_IDENTIFIER9& desc_d3d9);
 #endif
 #ifdef __linux__
 	// TODO

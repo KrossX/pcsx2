@@ -19,25 +19,32 @@
  *
  */
 
-#include "stdafx.h"
-#include "GSDeviceNull.h"
+#pragma once
 
-bool GSDeviceNull::Create(const std::shared_ptr<GSWnd>& wnd)
+#include "Renderers/Common/GSTexture.h"
+
+class GSTexture9 : public GSTexture
 {
-	if (!GSDevice::Create(wnd))
-		return false;
+	CComPtr<IDirect3DDevice9> m_dev;
+	CComPtr<IDirect3DSurface9> m_surface;
+	CComPtr<IDirect3DTexture9> m_texture;
+	D3DSURFACE_DESC m_desc;
 
-	Reset(1, 1);
+	bool m_generate_mipmap;
 
-	return true;
-}
+	int m_layer;
+	int m_max_layer;
 
-bool GSDeviceNull::Reset(int w, int h)
-{
-	return GSDevice::Reset(w, h);
-}
+public:
+	explicit GSTexture9(IDirect3DSurface9* surface);
+	explicit GSTexture9(IDirect3DTexture9* texture);
+	virtual ~GSTexture9();
 
-GSTexture* GSDeviceNull::CreateSurface(int type, int w, int h, int format, bool msaa)
-{
-	return new GSTextureNull(type, w, h, format);
-}
+	bool Update(const GSVector4i& r, const void* data, int pitch, int layer = 0);
+	bool Map(GSMap& m, const GSVector4i* r = NULL, int layer = 0);
+	void Unmap();
+	bool Save(const std::string& fn);
+
+	operator IDirect3DSurface9*();
+	operator IDirect3DTexture9*();
+};

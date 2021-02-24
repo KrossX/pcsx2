@@ -579,7 +579,7 @@ void GSDevice11::ClearStencil(GSTexture* t, uint8 c)
 	m_ctx->ClearDepthStencilView(*(GSTexture11*)t, D3D11_CLEAR_STENCIL, 0, c);
 }
 
-GSTexture* GSDevice11::CreateSurface(int type, int w, int h, int format)
+GSTexture* GSDevice11::CreateSurface(int type, int w, int h, int format, bool msaa)
 {
 	HRESULT hr;
 
@@ -647,7 +647,7 @@ GSTexture* GSDevice11::CreateSurface(int type, int w, int h, int format)
 	return t;
 }
 
-GSTexture* GSDevice11::FetchSurface(int type, int w, int h, int format)
+GSTexture* GSDevice11::FetchSurface(int type, int w, int h, int format, bool msaa)
 {
 	if (format == 0)
 		format = (type == GSTexture::DepthStencil || type == GSTexture::SparseDepthStencil) ? DXGI_FORMAT_R32G8X24_TYPELESS : DXGI_FORMAT_R8G8B8A8_UNORM;

@@ -88,6 +88,8 @@ GSLocalMemory::GSLocalMemory()
 	switch (theApp.GetCurrentRendererType())
 	{
 		case GSRendererType::OGL_SW:
+		case GSRendererType::DX9_SW:
+		case GSRendererType::DX1011_SW:
 			m_use_fifo_alloc = true;
 			break;
 		default:

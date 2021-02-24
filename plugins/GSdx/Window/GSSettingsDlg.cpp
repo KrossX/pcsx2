@@ -23,6 +23,7 @@
 #include "GSdx.h"
 #include "GSSettingsDlg.h"
 #include "GSUtil.h"
+#include "Renderers/DX9/GSDevice9.h"
 #include "Renderers/DX11/GSDevice11.h"
 #include "resource.h"
 #include "GSSetting.h"
@@ -32,6 +33,7 @@ GSSettingsDlg::GSSettingsDlg()
 	: GSDialog(IDD_CONFIG)
 	, m_renderers{theApp.m_gs_renderers}
 	, m_d3d11_adapters{EnumerateD3D11Adapters()}
+	, m_d3d9_adapters{EnumerateD3D9Adapters()}
 	, m_current_adapters{nullptr}
 	, m_last_selected_adapter_id{theApp.GetConfigS("Adapter")}
 {
@@ -80,6 +82,30 @@ std::vector<GSSettingsDlg::Adapter> GSSettingsDlg::EnumerateD3D11Adapters()
 	return adapters;
 }
 
+std::vector<GSSettingsDlg::Adapter> GSSettingsDlg::EnumerateD3D9Adapters()
+{
+	CComPtr<IDirect3D9> d3d9;
+	d3d9.Attach(Direct3DCreate9(D3D_SDK_VERSION));
+	if (d3d9 == nullptr)
+		return {};
+
+	std::vector<Adapter> adapters{
+		{"Default Hardware Device", "default", static_cast<D3D_FEATURE_LEVEL>(0)},
+		{"Reference Device", "ref", static_cast<D3D_FEATURE_LEVEL>(0)},
+	};
+
+	int n = d3d9->GetAdapterCount();
+	for (int i = 0; i < n; i++)
+	{
+		D3DADAPTER_IDENTIFIER9 desc;
+		if (d3d9->GetAdapterIdentifier(i, 0, &desc) != D3D_OK)
+			break;
+
+		adapters.push_back({desc.Description, GSAdapter(desc), static_cast<D3D_FEATURE_LEVEL>(0)});
+	}
+	return adapters;
+}
+
 void GSSettingsDlg::OnInit()
 {
 	__super::OnInit();
@@ -108,6 +134,9 @@ void GSSettingsDlg::OnInit()
 	CheckDlgButton(m_hWnd, IDC_MIPMAP_SW, theApp.GetConfigB("mipmap"));
 	CheckDlgButton(m_hWnd, IDC_AA1, theApp.GetConfigB("aa1"));
 	CheckDlgButton(m_hWnd, IDC_AUTO_FLUSH_SW, theApp.GetConfigB("autoflush_sw"));
+
+	CheckDlgButton(m_hWnd, IDC_LOGZ, theApp.GetConfigB("logz"));
+	CheckDlgButton(m_hWnd, IDC_FBA, theApp.GetConfigB("fba"));
 
 	// Hacks
 	CheckDlgButton(m_hWnd, IDC_HACKS_ENABLED, theApp.GetConfigB("UserHacks"));
@@ -177,7 +206,7 @@ bool GSSettingsDlg::OnCommand(HWND hWnd, UINT id, UINT code)
 				std::string adapter_id;
 				if (ComboBoxGetSelData(IDC_ADAPTER, data))
 					adapter_id = (*m_current_adapters)[data].id;
-				GSHacksDlg().DoModal();
+				GSHacksDlg(adapter_id).DoModal();
 			}
 			break;
 		case IDC_SWTHREADS_EDIT:
@@ -252,9 +281,13 @@ bool GSSettingsDlg::OnCommand(HWND hWnd, UINT id, UINT code)
 			theApp.SetConfig("conservative_framebuffer", (int)IsDlgButtonChecked(m_hWnd, IDC_CONSERVATIVE_FB));
 			theApp.SetConfig("UserHacks", (int)IsDlgButtonChecked(m_hWnd, IDC_HACKS_ENABLED));
 
+			theApp.SetConfig("logz", (int)IsDlgButtonChecked(m_hWnd, IDC_LOGZ));
+			theApp.SetConfig("fba", (int)IsDlgButtonChecked(m_hWnd, IDC_FBA));
+
 			theApp.SetConfig("aa1", (int)IsDlgButtonChecked(m_hWnd, IDC_AA1));
 			theApp.SetConfig("autoflush_sw", (int)IsDlgButtonChecked(m_hWnd, IDC_AUTO_FLUSH_SW));
 			theApp.SetConfig("mipmap", (int)IsDlgButtonChecked(m_hWnd, IDC_MIPMAP_SW));
+
 			// The LOWORD returned by UDM_GETPOS automatically restricts the value to its input range.
 			theApp.SetConfig("extrathreads", LOWORD(SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_GETPOS, 0, 0)));
 		}
@@ -271,18 +304,20 @@ void GSSettingsDlg::UpdateAdapters()
 		return;
 
 	const GSRendererType renderer = static_cast<GSRendererType>(data);
-	const bool dx11 = renderer == GSRendererType::DX1011_HW;
+	const bool dx9 = renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX9_SW;
+	const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW;
+	const bool dxdev = dx9 | dx11;
 
-	EnableWindow(GetDlgItem(m_hWnd, IDC_ADAPTER), dx11);
-	EnableWindow(GetDlgItem(m_hWnd, IDC_ADAPTER_TEXT), dx11);
+	EnableWindow(GetDlgItem(m_hWnd, IDC_ADAPTER), dxdev);
+	EnableWindow(GetDlgItem(m_hWnd, IDC_ADAPTER_TEXT), dxdev);
 
-	if (!dx11)
+	if (!dxdev)
 	{
 		SendMessage(GetDlgItem(m_hWnd, IDC_ADAPTER), CB_RESETCONTENT, 0, 0);
 		return;
 	}
 
-	m_current_adapters = &m_d3d11_adapters;
+	m_current_adapters = dx11 ? &m_d3d11_adapters : &m_d3d9_adapters;
 
 	std::vector<GSSetting> adapter_settings;
 	unsigned int adapter_sel = 0;
@@ -312,16 +347,18 @@ void GSSettingsDlg::UpdateControls()
 	{
 		const GSRendererType renderer = static_cast<GSRendererType>(i);
 
-		const bool dx11 = renderer == GSRendererType::DX1011_HW;
+		const bool dx9 = renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX9_SW;
+		const bool dx11 = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::DX1011_SW;
 		const bool ogl = renderer == GSRendererType::OGL_HW || renderer == GSRendererType::OGL_SW;
 
-		const bool hw = renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::OGL_HW;
-		const bool sw = renderer == GSRendererType::OGL_SW;
+		const bool hw =  renderer == GSRendererType::DX9_HW || renderer == GSRendererType::DX1011_HW || renderer == GSRendererType::OGL_HW;
+		const bool sw =  renderer == GSRendererType::DX9_SW || renderer == GSRendererType::DX1011_SW || renderer == GSRendererType::OGL_SW;
 		const bool null = renderer == GSRendererType::Null;
 
 		const int sw_threads = (int)SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_GETPOS, 0, 0);
 		SendMessage(GetDlgItem(m_hWnd, IDC_SWTHREADS), UDM_SETPOS, 0, MAKELPARAM(sw_threads, 0));
 
+		ShowWindow(GetDlgItem(m_hWnd, IDC_LOGO9), dx9 ? SW_SHOW : SW_HIDE);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_LOGO11), dx11 ? SW_SHOW : SW_HIDE);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_NULL), null ? SW_SHOW : SW_HIDE);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_LOGOGL), ogl ? SW_SHOW : SW_HIDE);
@@ -330,6 +367,9 @@ void GSSettingsDlg::UpdateControls()
 		EnableWindow(GetDlgItem(m_hWnd, IDC_INTERLACE_TEXT), !null);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_FILTER), !null);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_FILTER_TEXT), !null);
+
+		ShowWindow(GetDlgItem(m_hWnd, IDC_LOGZ), dx9 ? SW_SHOW: SW_HIDE);
+		ShowWindow(GetDlgItem(m_hWnd, IDC_FBA), dx9 ? SW_SHOW : SW_HIDE);
 
 		EnableWindow(GetDlgItem(m_hWnd, IDC_MIPMAP_HW), hw);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_MIPMAP_HW_TEXT), hw);
@@ -341,6 +381,9 @@ void GSSettingsDlg::UpdateControls()
 		EnableWindow(GetDlgItem(m_hWnd, IDC_PALTEX), hw);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_DITHERING), hw);
 		EnableWindow(GetDlgItem(m_hWnd, IDC_DITHERING_TEXT), hw);
+
+		EnableWindow(GetDlgItem(m_hWnd, IDC_LOGZ), dx9 && hw);
+		EnableWindow(GetDlgItem(m_hWnd, IDC_FBA), dx9 && hw);
 
 		INT_PTR filter;
 		if (ComboBoxGetSelData(IDC_FILTER, filter))
@@ -354,6 +397,7 @@ void GSSettingsDlg::UpdateControls()
 		EnableWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_TEXT), hw);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT), ogl ? SW_SHOW : SW_HIDE);
 		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_D3D11), dx11 || null ? SW_SHOW : SW_HIDE);
+		ShowWindow(GetDlgItem(m_hWnd, IDC_ACCURATE_BLEND_UNIT_TEXT), dx9 ? SW_HIDE : SW_SHOW);
 
 		// Software mode settings
 		EnableWindow(GetDlgItem(m_hWnd, IDC_MIPMAP_SW), sw);
@@ -574,8 +618,9 @@ bool GSShaderDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 
 // Hacks Dialog
 
-GSHacksDlg::GSHacksDlg()
+GSHacksDlg::GSHacksDlg(const std::string &adapter_id)
 	: GSDialog{IDD_HACKS}
+	, m_adapter_id(adapter_id)
 	, m_old_skipdraw_offset{0}
 	, m_old_skipdraw{0}
 {
@@ -590,8 +635,30 @@ void GSHacksDlg::OnInit()
 
 	// It can only be accessed with a HW renderer, so this is sufficient.
 	const bool hwhacks = IsDlgButtonChecked(GetParent(m_hWnd), IDC_HACKS_ENABLED) == BST_CHECKED;
+	const bool dx9 = renderer == GSRendererType::DX9_HW;
 	const bool ogl = renderer == GSRendererType::OGL_HW;
 	const bool native = upscaling_multiplier == 1;
+
+	if(dx9) {
+		unsigned short cb = 0;
+
+		for(unsigned short i = 0; i < 17; i++) {
+			if(i == 1) continue;
+			int depth = GSDevice9::GetMaxDepth(i, m_adapter_id);
+			if(depth) {
+				char text[32] = {0};
+				sprintf(text, depth == 32 ? "%dx Z-32" : "%dx Z-24", i);
+				SendMessage(GetDlgItem(m_hWnd, IDC_MSAACB), CB_ADDSTRING, 0, (LPARAM)text);
+				msaa2cb[i] = cb;
+				cb2msaa[cb] = i;
+				cb++;
+			}
+		}
+
+		int msaa_ini = theApp.GetConfigI("UserHacks_MSAA");
+		msaa_ini = msaa_ini < 0 ? 0 : msaa_ini > 16 ? 16 : msaa_ini;
+		SendMessage(GetDlgItem(m_hWnd, IDC_MSAACB), CB_SETCURSEL, msaa2cb[msaa_ini], 0);
+	}
 
 	CheckDlgButton(m_hWnd, IDC_WILDHACK, theApp.GetConfigB("UserHacks_WildHack"));
 	CheckDlgButton(m_hWnd, IDC_PRELOAD_GS, theApp.GetConfigB("preload_frame_with_gs_data"));
@@ -622,6 +689,9 @@ void GSHacksDlg::OnInit()
 
 	SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_SETRANGE, 0, MAKELPARAM(10000, 0));
 	SendMessage(GetDlgItem(m_hWnd, IDC_TCOFFSETY), UDM_SETPOS, 0, MAKELPARAM(theApp.GetConfigI("UserHacks_TCOffsetY"), 0));
+
+	EnableWindow(GetDlgItem(m_hWnd, IDC_MSAACB), dx9);
+	EnableWindow(GetDlgItem(m_hWnd, IDC_MSAA_TEXT), dx9);
 
 	EnableWindow(GetDlgItem(m_hWnd, IDC_PRELOAD_GS), hwhacks);
 	EnableWindow(GetDlgItem(m_hWnd, IDC_TC_DEPTH), hwhacks);
@@ -791,6 +861,7 @@ bool GSHacksDlg::OnMessage(UINT message, WPARAM wParam, LPARAM lParam)
 					theApp.SetConfig("UserHacks_SkipDraw_Offset", std::min(skipdraw_offset, skipdraw));
 					theApp.SetConfig("UserHacks_SkipDraw", skipdraw);
 
+					theApp.SetConfig("UserHacks_MSAA", cb2msaa[(int)SendMessage(GetDlgItem(m_hWnd, IDC_MSAACB), CB_GETCURSEL, 0, 0)]);
 					theApp.SetConfig("UserHacks_WildHack", (int)IsDlgButtonChecked(m_hWnd, IDC_WILDHACK));
 					theApp.SetConfig("preload_frame_with_gs_data", (int)IsDlgButtonChecked(m_hWnd, IDC_PRELOAD_GS));
 					theApp.SetConfig("UserHacks_align_sprite_X", (int)IsDlgButtonChecked(m_hWnd, IDC_ALIGN_SPRITE));

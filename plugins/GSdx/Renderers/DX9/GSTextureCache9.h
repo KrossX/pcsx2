@@ -19,25 +19,21 @@
  *
  */
 
-#include "stdafx.h"
-#include "GSDeviceNull.h"
+#pragma once
 
-bool GSDeviceNull::Create(const std::shared_ptr<GSWnd>& wnd)
+#include "Renderers/HW/GSTextureCache.h"
+#include "GSDevice9.h"
+
+class GSTextureCache9 : public GSTextureCache
 {
-	if (!GSDevice::Create(wnd))
-		return false;
+protected:
+	int Get8bitFormat() {return D3DFMT_A8;}
 
-	Reset(1, 1);
+	void Read(Target* t, const GSVector4i& r);
+	void Read(Source* t, const GSVector4i& r);
 
-	return true;
-}
+	virtual bool CanConvertDepth() { return false; }
 
-bool GSDeviceNull::Reset(int w, int h)
-{
-	return GSDevice::Reset(w, h);
-}
-
-GSTexture* GSDeviceNull::CreateSurface(int type, int w, int h, int format, bool msaa)
-{
-	return new GSTextureNull(type, w, h, format);
-}
+public:
+	GSTextureCache9(GSRenderer* r);
+};
