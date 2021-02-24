@@ -17,9 +17,7 @@
 #include "../Global.h"
 #include "Dialogs.h"
 
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0602
-#include <xaudio2.h>
+#include "../3rdparty/xaudio2redist/include/xaudio2.h"
 #include <cguid.h>
 #include <atlcomcli.h>
 #include <memory>
@@ -272,9 +270,9 @@ public:
 		{
 			HRESULT hr;
 
-			xAudio2DLL = LoadLibraryEx(XAUDIO2_DLL, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+			xAudio2DLL = LoadLibraryA("xaudio2_9redist.dll");
 			if (xAudio2DLL == nullptr)
-				throw std::runtime_error("Could not load " XAUDIO2_DLL_A ". Error code:" + std::to_string(GetLastError()));
+				throw std::runtime_error("Could not load xaudio2_9redist.dll. Error code:" + std::to_string(GetLastError()));
 
 			pXAudio2Create = reinterpret_cast<decltype(&XAudio2Create)>(GetProcAddress(xAudio2DLL, "XAudio2Create"));
 			if (pXAudio2Create == nullptr)

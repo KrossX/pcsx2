@@ -84,6 +84,24 @@
       <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalDependencies Condition="'$(Configuration)|$(Platform)'=='Release|x64'">comctl32.lib;ws2_32.lib;shlwapi.lib;winmm.lib;rpcrt4.lib;iphlpapi.lib;dsound.lib;dxguid.lib;dinput8.lib;hid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Devel|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">copy "$(SolutionDir)3rdParty\xaudio2redist\release\bin\$(PlatformShortName)\*.dll" "$(TargetDir)" /y</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\..\PAD\Windows\Default.ini" />
