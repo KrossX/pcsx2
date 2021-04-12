@@ -50,10 +50,23 @@ void Pcsx2App::DetectCpuAndUserMode()
 	{
 		// This code will probably never run if the binary was correctly compiled for SSE4
 		// SSE4 is required for any decent speed and is supported by more than decade old x86 CPUs
-		throw Exception::HardwareDeficiency()
-			.SetDiagMsg(L"Critical Failure: SSE4.1 Extensions not available.")
-			.SetUserMsg(_("SSE4 extensions are not available.  PCSX2 requires a cpu that supports the SSE4.1 instruction set."));
+		//throw Exception::HardwareDeficiency()
+		//	.SetDiagMsg(L"Critical Failure: SSE4.1 Extensions not available.")
+		//	.SetUserMsg(_("SSE4 extensions are not available.  PCSX2 requires a cpu that supports the SSE4.1 instruction set."));
+		if (!x86caps.hasSupplementalStreamingSIMD3Extensions)
+		{
+			x86caps.SIMDLevel = SIMD_Level_SSE2;
+		}
+		else
+		{
+			x86caps.SIMDLevel = SIMD_Level_SSSE3;
+		}
 	}
+	else
+	{
+		x86caps.SIMDLevel = SIMD_Level_SSE41;
+	}
+
 #endif
 
 	EstablishAppUserMode();
