@@ -28,7 +28,16 @@ static __fi void testZero(const xmm& xmmReg, const xmm& xmmTemp, const x32& gprT
 {
 	xXOR.PS(xmmTemp, xmmTemp);
 	xCMPEQ.SS(xmmTemp, xmmReg);
-	xPTEST(xmmTemp, xmmTemp);
+
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		xMOVMSKPS(gprTemp, xmmTemp);
+		xTEST(gprTemp, 1);
+	}
+	else
+	{
+		xPTEST(xmmTemp, xmmTemp);
+	}
 }
 
 // Test if Vector is Negative (Set Flags and Makes Positive)
@@ -294,8 +303,20 @@ mVUop(mVU_EEXP) {
 
 // sumXYZ(): PQ.x = x ^ 2 + y ^ 2 + z ^ 2
 static __fi void mVU_sumXYZ(mV, const xmm& PQ, const xmm& Fs) {
-	xDP.PS(Fs, Fs, 0x71);
-	xMOVSS(PQ, Fs);
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		SSE_MULPS(mVU, Fs, Fs);	   // wzyx ^ 2
+		xMOVSS(PQ, Fs);		  // x ^ 2
+		xPSHUF.D(Fs, Fs, 0xe1); // wzyx -> wzxy
+		SSE_ADDSS(mVU, PQ, Fs);	   // x ^ 2 + y ^ 2
+		xPSHUF.D(Fs, Fs, 0xd2); // wzxy -> wxyz
+		SSE_ADDSS(mVU, PQ, Fs);	   // x ^ 2 + y ^ 2 + z ^ 2
+	}
+	else
+	{
+		xDP.PS(Fs, Fs, 0x71);
+		xMOVSS(PQ, Fs);
+	}
 }
 
 mVUop(mVU_ELENG) {

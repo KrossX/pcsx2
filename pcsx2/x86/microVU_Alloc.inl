@@ -167,6 +167,20 @@ __fi void getQreg(const xmm& reg, int qInstance)
 __ri void writeQreg(const xmm& reg, int qInstance)
 {
 	if (qInstance)
-		xINSERTPS(xmmPQ, reg, _MM_MK_INSERTPS_NDX(0, 1, 0));
-	else xMOVSS(xmmPQ, reg);
+	{
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
+			xMOVSS(xmmPQ, reg);
+			xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
+		}
+		else
+		{
+			xINSERTPS(xmmPQ, reg, _MM_MK_INSERTPS_NDX(0, 1, 0));
+		}
+	}
+	else
+	{
+		xMOVSS(xmmPQ, reg);
+	}
 }
