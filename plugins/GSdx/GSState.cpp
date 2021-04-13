@@ -595,20 +595,19 @@ void GSState::GIFPackedRegHandlerNull(const GIFPackedReg* RESTRICT r)
 
 void GSState::GIFPackedRegHandlerRGBA(const GIFPackedReg* RESTRICT r)
 {
-#if _M_SSE >= 0x301
+	if (SIMDLevel < SIMD_Level_SSSE3)
+	{
+		GSVector4i v = GSVector4i::load<false>(r) & GSVector4i::x000000ff();
 
-	GSVector4i mask = GSVector4i::load(0x0c080400);
-	GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
+		m_v.RGBAQ.u32[0] = v.rgba32();
+	}
+	else
+	{
+		GSVector4i mask = GSVector4i::load(0x0c080400);
+		GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
 
-	m_v.RGBAQ.u32[0] = (uint32)GSVector4i::store(v);
-
-#else
-
-	GSVector4i v = GSVector4i::load<false>(r) & GSVector4i::x000000ff();
-
-	m_v.RGBAQ.u32[0] = v.rgba32();
-
-#endif
+		m_v.RGBAQ.u32[0] = (uint32)GSVector4i::store(v);
+	}
 
 	m_v.RGBAQ.Q = m_q;
 }
@@ -2734,7 +2733,14 @@ __forceinline void GSState::VertexKick(uint32 skip)
 
 	GSVector4i xy = v1.xxxx().u16to32().sub32(m_ofxy);
 
-	GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.blend16<0xf0>(xy.sra32(4)).ps32());
+	if (SIMDLevel < SIMD_Level_SSE41)
+	{
+		GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.upl64(xy.sra32(4).zwzw()).ps32());
+	}
+	else
+	{
+		GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.blend16<0xf0>(xy.sra32(4)).ps32());
+	}
 
 	m_vertex.tail = ++tail;
 	m_vertex.xy_tail = ++xy_tail;

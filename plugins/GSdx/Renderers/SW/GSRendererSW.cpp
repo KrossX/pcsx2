@@ -277,16 +277,16 @@ void GSRendererSW::ConvertVertexBuffer(GSVertexSW* RESTRICT dst, const GSVertex*
 	
 	GSVector4i off = (GSVector4i)m_context->XYOFFSET;
 	GSVector4 tsize = GSVector4(0x10000 << m_context->TEX0.TW, 0x10000 << m_context->TEX0.TH, 1, 0);
-	GSVector4i z_max = GSVector4i::xffffffff().srl32(GSLocalMemory::m_psm[m_context->ZBUF.PSM].fmt * 8);
 
 	for(int i = (int)m_vertex.next; i > 0; i--, src++, dst++)
 	{
 		GSVector4 stcq = GSVector4::load<true>(&src->m[0]); // s t rgba q
-
 		GSVector4i xyzuvf(src->m[1]);
+		uint32 z = src->XYZ.Z;
 
-		GSVector4i xy = xyzuvf.upl16() - off;
-		GSVector4i zf = xyzuvf.ywww().min_u32(GSVector4i::xffffff00());
+		GSVector4i xy = SIMDLevel < SIMD_Level_SSE41 ? GSVector4i::load((int)src->XYZ.u32[0]).upl16() - off : xyzuvf.upl16() - off;
+		GSVector4i zf = SIMDLevel < SIMD_Level_SSE41 ? GSVector4i((int)std::min<uint32>(z, 0xffffff00), src->FOG) : xyzuvf.ywww().min_u32(GSVector4i::xffffff00());
+		// NOTE: (zf<SS41) larger values of z may roll over to 0 when converting back to uint32 later
 
 		dst->p = GSVector4(xy).xyxy(GSVector4(zf) + (GSVector4::m_x4f800000 & GSVector4::cast(zf.sra32(31)))) * m_pos_scale;
 		dst->c = GSVector4(GSVector4i::cast(stcq).zzzz().u8to32() << 7);
@@ -297,7 +297,14 @@ void GSRendererSW::ConvertVertexBuffer(GSVertexSW* RESTRICT dst, const GSVertex*
 		{
 			if(fst)
 			{
-				t = GSVector4(xyzuvf.uph16() << (16 - 4));
+				if (SIMDLevel < SIMD_Level_SSE41)
+				{
+					t = GSVector4(GSVector4i::load(src->UV).upl16() << (16 - 4));
+				}
+				else
+				{
+					t = GSVector4(xyzuvf.uph16() << (16 - 4));
+				}
 			}
 			else if(q_div)
 			{
@@ -322,8 +329,18 @@ void GSRendererSW::ConvertVertexBuffer(GSVertexSW* RESTRICT dst, const GSVertex*
 
 		if(primclass == GS_SPRITE_CLASS)
 		{
-			xyzuvf = xyzuvf.min_u32(z_max);
-			t = t.insert32<1, 3>(GSVector4::cast(xyzuvf));
+			if (SIMDLevel < SIMD_Level_SSE41)
+			{
+				uint32_t z_max = 0xffffffff >> (GSLocalMemory::m_psm[m_context->ZBUF.PSM].fmt * 8);
+				z = std::min(z, z_max);
+				t = t.insert32<0, 3>(GSVector4::cast(GSVector4i::load(z)));
+			}
+			else
+			{
+				GSVector4i z_max = GSVector4i::xffffffff().srl32(GSLocalMemory::m_psm[m_context->ZBUF.PSM].fmt * 8);
+				xyzuvf = xyzuvf.min_u32(z_max);
+				t = t.insert32<1, 3>(GSVector4::cast(xyzuvf));
+			}
 		}
 
 		dst->t = t;

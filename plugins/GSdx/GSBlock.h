@@ -24,6 +24,7 @@
 #include "GS.h"
 #include "GSTables.h"
 #include "GSVector.h"
+#include "GSUtil.h"
 
 class GSBlock
 {
@@ -158,19 +159,29 @@ public:
 		{
 			GSVector4i v4((int)mask);
 
-			if(mask == 0xff000000 || mask == 0x00ffffff)
-			{
-				((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend8(v0, v4);
-				((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend8(v1, v4);
-				((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend8(v2, v4);
-				((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend8(v3, v4);
-			}
-			else
+			if (SIMDLevel < SIMD_Level_SSE41)
 			{
 				((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend(v0, v4);
 				((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend(v1, v4);
 				((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend(v2, v4);
 				((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend(v3, v4);
+			}
+			else
+			{
+				if (mask == 0xff000000 || mask == 0x00ffffff)
+				{
+					((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend8(v0, v4);
+					((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend8(v1, v4);
+					((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend8(v2, v4);
+					((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend8(v3, v4);
+				}
+				else
+				{
+					((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend(v0, v4);
+					((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend(v1, v4);
+					((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend(v2, v4);
+					((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend(v3, v4);
+				}
 			}
 		}
 
@@ -496,24 +507,49 @@ public:
 
 		#elif _M_SSE >= 0x301
 
-		const GSVector4i* s = (const GSVector4i*)src;
+		if (SIMDLevel < SIMD_Level_SSSE3)
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-		GSVector4i v0 = s[i * 4 + 0].shuffle8(m_r16mask);
-		GSVector4i v1 = s[i * 4 + 1].shuffle8(m_r16mask);
-		GSVector4i v2 = s[i * 4 + 2].shuffle8(m_r16mask);
-		GSVector4i v3 = s[i * 4 + 3].shuffle8(m_r16mask);
+			GSVector4i v0 = s[i * 4 + 0];
+			GSVector4i v1 = s[i * 4 + 1];
+			GSVector4i v2 = s[i * 4 + 2];
+			GSVector4i v3 = s[i * 4 + 3];
 
-		GSVector4i::sw32(v0, v1, v2, v3);
-		GSVector4i::sw64(v0, v1, v2, v3);
+			//for(int16 i = 0; i < 8; i++) {v0.i16[i] = i; v1.i16[i] = i + 8; v2.i16[i] = i + 16; v3.i16[i] = i + 24;}
 
-		GSVector4i* d0 = (GSVector4i*)&dst[dstpitch * 0];
-		GSVector4i* d1 = (GSVector4i*)&dst[dstpitch * 1];
+			GSVector4i::sw16(v0, v1, v2, v3);
+			GSVector4i::sw32(v0, v1, v2, v3);
+			GSVector4i::sw16(v0, v2, v1, v3);
 
-		GSVector4i::store<true>(&d0[0], v0);
-		GSVector4i::store<true>(&d0[1], v2);
-		GSVector4i::store<true>(&d1[0], v1);
-		GSVector4i::store<true>(&d1[1], v3);
+			GSVector4i* d0 = (GSVector4i*)&dst[dstpitch * 0];
+			GSVector4i* d1 = (GSVector4i*)&dst[dstpitch * 1];
 
+			GSVector4i::store<true>(&d0[0], v0);
+			GSVector4i::store<true>(&d0[1], v1);
+			GSVector4i::store<true>(&d1[0], v2);
+			GSVector4i::store<true>(&d1[1], v3);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
+
+			GSVector4i v0 = s[i * 4 + 0].shuffle8(m_r16mask);
+			GSVector4i v1 = s[i * 4 + 1].shuffle8(m_r16mask);
+			GSVector4i v2 = s[i * 4 + 2].shuffle8(m_r16mask);
+			GSVector4i v3 = s[i * 4 + 3].shuffle8(m_r16mask);
+
+			GSVector4i::sw32(v0, v1, v2, v3);
+			GSVector4i::sw64(v0, v1, v2, v3);
+
+			GSVector4i* d0 = (GSVector4i*)&dst[dstpitch * 0];
+			GSVector4i* d1 = (GSVector4i*)&dst[dstpitch * 1];
+
+			GSVector4i::store<true>(&d0[0], v0);
+			GSVector4i::store<true>(&d0[1], v2);
+			GSVector4i::store<true>(&d1[0], v1);
+			GSVector4i::store<true>(&d1[1], v3);
+		}
 		#endif
 	}
 
@@ -547,75 +583,146 @@ public:
 		// TODO: not sure if this is worth it, not in this form, there should be a shorter path
 
 		#else
-
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-
-		if((i & 1) == 0)
+		if (SIMDLevel < SIMD_Level_SSSE3)
 		{
-			v0 = s[i * 4 + 0];
-			v1 = s[i * 4 + 1];
-			v2 = s[i * 4 + 2];
-			v3 = s[i * 4 + 3];
+			const GSVector4i* s = (const GSVector4i*)src;
+
+			GSVector4i v0 = s[i * 4 + 0];
+			GSVector4i v1 = s[i * 4 + 1];
+			GSVector4i v2 = s[i * 4 + 2];
+			GSVector4i v3 = s[i * 4 + 3];
+
+			GSVector4i::sw8(v0, v1, v2, v3);
+			GSVector4i::sw16(v0, v1, v2, v3);
+			GSVector4i::sw8(v0, v2, v1, v3);
+			GSVector4i::sw64(v0, v1, v2, v3);
+
+			if ((i & 1) == 0)
+			{
+				v2 = v2.yxwz();
+				v3 = v3.yxwz();
+			}
+			else
+			{
+				v0 = v0.yxwz();
+				v1 = v1.yxwz();
+			}
+
+			GSVector4i::store<true>(&dst[dstpitch * 0], v0);
+			GSVector4i::store<true>(&dst[dstpitch * 1], v1);
+			GSVector4i::store<true>(&dst[dstpitch * 2], v2);
+			GSVector4i::store<true>(&dst[dstpitch * 3], v3);
 		}
 		else
 		{
-			v2 = s[i * 4 + 0];
-			v3 = s[i * 4 + 1];
-			v0 = s[i * 4 + 2];
-			v1 = s[i * 4 + 3];
+			const GSVector4i* s = (const GSVector4i*)src;
+
+			GSVector4i v0, v1, v2, v3;
+
+			if ((i & 1) == 0)
+			{
+				v0 = s[i * 4 + 0];
+				v1 = s[i * 4 + 1];
+				v2 = s[i * 4 + 2];
+				v3 = s[i * 4 + 3];
+			}
+			else
+			{
+				v2 = s[i * 4 + 0];
+				v3 = s[i * 4 + 1];
+				v0 = s[i * 4 + 2];
+				v1 = s[i * 4 + 3];
+			}
+
+			v0 = v0.shuffle8(m_r8mask);
+			v1 = v1.shuffle8(m_r8mask);
+			v2 = v2.shuffle8(m_r8mask);
+			v3 = v3.shuffle8(m_r8mask);
+
+			GSVector4i::sw16(v0, v1, v2, v3);
+			GSVector4i::sw32(v0, v1, v3, v2);
+
+			GSVector4i::store<true>(&dst[dstpitch * 0], v0);
+			GSVector4i::store<true>(&dst[dstpitch * 1], v3);
+			GSVector4i::store<true>(&dst[dstpitch * 2], v1);
+			GSVector4i::store<true>(&dst[dstpitch * 3], v2);
 		}
-
-		v0 = v0.shuffle8(m_r8mask);
-		v1 = v1.shuffle8(m_r8mask);
-		v2 = v2.shuffle8(m_r8mask);
-		v3 = v3.shuffle8(m_r8mask);
-
-		GSVector4i::sw16(v0, v1, v2, v3);
-		GSVector4i::sw32(v0, v1, v3, v2);
-
-		GSVector4i::store<true>(&dst[dstpitch * 0], v0);
-		GSVector4i::store<true>(&dst[dstpitch * 1], v3);
-		GSVector4i::store<true>(&dst[dstpitch * 2], v1);
-		GSVector4i::store<true>(&dst[dstpitch * 3], v2);
-
 		#endif
 	}
 
 	template<int i> __forceinline static void ReadColumn4(const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch)
 	{
 		//printf("ReadColumn4\n");
-
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0 = s[i * 4 + 0].xzyw();
-		GSVector4i v1 = s[i * 4 + 1].xzyw();
-		GSVector4i v2 = s[i * 4 + 2].xzyw();
-		GSVector4i v3 = s[i * 4 + 3].xzyw();
-
-		GSVector4i::sw64(v0, v1, v2, v3);
-		GSVector4i::sw4(v0, v2, v1, v3);
-		GSVector4i::sw8(v0, v1, v2, v3);
-
-		v0 = v0.shuffle8(m_r4mask);
-		v1 = v1.shuffle8(m_r4mask);
-		v2 = v2.shuffle8(m_r4mask);
-		v3 = v3.shuffle8(m_r4mask);
-
-		if((i & 1) == 0)
+		if (SIMDLevel < SIMD_Level_SSSE3)
 		{
-			GSVector4i::sw16rh(v0, v1, v2, v3);
+			const GSVector4i* s = (const GSVector4i*)src;
+
+			GSVector4i v0 = s[i * 4 + 0];
+			GSVector4i v1 = s[i * 4 + 1];
+			GSVector4i v2 = s[i * 4 + 2];
+			GSVector4i v3 = s[i * 4 + 3];
+
+			GSVector4i::sw32(v0, v1, v2, v3);
+			GSVector4i::sw32(v0, v1, v2, v3);
+			GSVector4i::sw4(v0, v2, v1, v3);
+			GSVector4i::sw8(v0, v1, v2, v3);
+			GSVector4i::sw16(v0, v2, v1, v3);
+
+			v0 = v0.xzyw();
+			v1 = v1.xzyw();
+			v2 = v2.xzyw();
+			v3 = v3.xzyw();
+
+			GSVector4i::sw64(v0, v1, v2, v3);
+
+			if ((i & 1) == 0)
+			{
+				v2 = v2.yxwzlh();
+				v3 = v3.yxwzlh();
+			}
+			else
+			{
+				v0 = v0.yxwzlh();
+				v1 = v1.yxwzlh();
+			}
+
+			GSVector4i::store<true>(&dst[dstpitch * 0], v0);
+			GSVector4i::store<true>(&dst[dstpitch * 1], v1);
+			GSVector4i::store<true>(&dst[dstpitch * 2], v2);
+			GSVector4i::store<true>(&dst[dstpitch * 3], v3);
 		}
 		else
 		{
-			GSVector4i::sw16rl(v0, v1, v2, v3);
-		}
+			const GSVector4i* s = (const GSVector4i*)src;
 
-		GSVector4i::store<true>(&dst[dstpitch * 0], v0);
-		GSVector4i::store<true>(&dst[dstpitch * 1], v1);
-		GSVector4i::store<true>(&dst[dstpitch * 2], v2);
-		GSVector4i::store<true>(&dst[dstpitch * 3], v3);
+			GSVector4i v0 = s[i * 4 + 0].xzyw();
+			GSVector4i v1 = s[i * 4 + 1].xzyw();
+			GSVector4i v2 = s[i * 4 + 2].xzyw();
+			GSVector4i v3 = s[i * 4 + 3].xzyw();
+
+			GSVector4i::sw64(v0, v1, v2, v3);
+			GSVector4i::sw4(v0, v2, v1, v3);
+			GSVector4i::sw8(v0, v1, v2, v3);
+
+			v0 = v0.shuffle8(m_r4mask);
+			v1 = v1.shuffle8(m_r4mask);
+			v2 = v2.shuffle8(m_r4mask);
+			v3 = v3.shuffle8(m_r4mask);
+
+			if ((i & 1) == 0)
+			{
+				GSVector4i::sw16rh(v0, v1, v2, v3);
+			}
+			else
+			{
+				GSVector4i::sw16rl(v0, v1, v2, v3);
+			}
+
+			GSVector4i::store<true>(&dst[dstpitch * 0], v0);
+			GSVector4i::store<true>(&dst[dstpitch * 1], v1);
+			GSVector4i::store<true>(&dst[dstpitch * 2], v2);
+			GSVector4i::store<true>(&dst[dstpitch * 3], v3);
+		}
 	}
 
 	static void ReadColumn32(int y, const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch)
@@ -1132,15 +1239,27 @@ public:
 
 	__forceinline static void ExpandBlock8H_16(uint32* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
-		for(int j = 0; j < 8; j++, dst += dstpitch)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					((uint16*)dst)[i] = (uint16)pal[src[j * 8 + i] >> 24];
+				}
+			}
+		}
+		else
+		{
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				const GSVector4i* s = (const GSVector4i*)src;
 
-			const GSVector4i* s = (const GSVector4i*)src;
+				GSVector4i v0 = (s[j * 2 + 0] >> 24).gather32_32<>(pal);
+				GSVector4i v1 = (s[j * 2 + 1] >> 24).gather32_32<>(pal);
 
-			GSVector4i v0 = (s[j * 2 + 0] >> 24).gather32_32<>(pal);
-			GSVector4i v1 = (s[j * 2 + 1] >> 24).gather32_32<>(pal);
-
-			((GSVector4i*)dst)[0] = v0.pu32(v1);
+				((GSVector4i*)dst)[0] = v0.pu32(v1);
+			}
 		}
 	}
 
@@ -1157,14 +1276,27 @@ public:
 
 	__forceinline static void ExpandBlock4HL_16(uint32* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
-		for(int j = 0; j < 8; j++, dst += dstpitch)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			const GSVector4i* s = (const GSVector4i*)src;
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					((uint16*)dst)[i] = (uint16)pal[(src[j * 8 + i] >> 24) & 0xf];
+				}
+			}
+		}
+		else
+		{
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				const GSVector4i* s = (const GSVector4i*)src;
 
-			GSVector4i v0 = ((s[j * 2 + 0] >> 24) & 0xf).gather32_32<>(pal);
-			GSVector4i v1 = ((s[j * 2 + 1] >> 24) & 0xf).gather32_32<>(pal);
+				GSVector4i v0 = ((s[j * 2 + 0] >> 24) & 0xf).gather32_32<>(pal);
+				GSVector4i v1 = ((s[j * 2 + 1] >> 24) & 0xf).gather32_32<>(pal);
 
-			((GSVector4i*)dst)[0] = v0.pu32(v1);
+				((GSVector4i*)dst)[0] = v0.pu32(v1);
+			}
 		}
 	}
 
@@ -1181,14 +1313,27 @@ public:
 
 	__forceinline static void ExpandBlock4HH_16(uint32* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
-		for(int j = 0; j < 8; j++, dst += dstpitch)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			const GSVector4i* s = (const GSVector4i*)src;
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				for (int i = 0; i < 8; i++)
+				{
+					((uint16*)dst)[i] = (uint16)pal[src[j * 8 + i] >> 28];
+				}
+			}
+		}
+		else
+		{
+			for (int j = 0; j < 8; j++, dst += dstpitch)
+			{
+				const GSVector4i* s = (const GSVector4i*)src;
 
-			GSVector4i v0 = (s[j * 2 + 0] >> 28).gather32_32<>(pal);
-			GSVector4i v1 = (s[j * 2 + 1] >> 28).gather32_32<>(pal);
+				GSVector4i v0 = (s[j * 2 + 0] >> 28).gather32_32<>(pal);
+				GSVector4i v1 = (s[j * 2 + 1] >> 28).gather32_32<>(pal);
 
-			((GSVector4i*)dst)[0] = v0.pu32(v1);
+				((GSVector4i*)dst)[0] = v0.pu32(v1);
+			}
 		}
 	}
 
@@ -1328,26 +1473,55 @@ public:
 
 		#elif _M_SSE >= 0x301
 
-		GSVector4i v0, v1, v2, v3;
-		GSVector4i mask = GSVector4i::xff000000();
-		GSVector4i mask0 = m_uw8hmask0;
-		GSVector4i mask1 = m_uw8hmask1;
-		GSVector4i mask2 = m_uw8hmask2;
-		GSVector4i mask3 = m_uw8hmask3;
-
-		for(int i = 0; i < 4; i++, src += srcpitch * 2)
+		if (SIMDLevel < SIMD_Level_SSSE3)
 		{
-			v4 = GSVector4i::load(src, src + srcpitch);
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = GSVector4i::xff000000();
 
-			v0 = v4.shuffle8(mask0);
-			v1 = v4.shuffle8(mask1);
-			v2 = v4.shuffle8(mask2);
-			v3 = v4.shuffle8(mask3);
+			for (int i = 0; i < 4; i++, src += srcpitch * 2)
+			{
+				v4 = GSVector4i::loadl(&src[srcpitch * 0]);
+				v5 = GSVector4i::loadl(&src[srcpitch * 1]);
 
-			((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend8(v0, mask);
-			((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend8(v1, mask);
-			((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend8(v2, mask);
-			((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend8(v3, mask);
+				v6 = v4.upl16(v5);
+
+				v4 = v6.upl8(v6);
+				v5 = v6.uph8(v6);
+
+				v0 = v4.upl16(v4);
+				v1 = v4.uph16(v4);
+				v2 = v5.upl16(v5);
+				v3 = v5.uph16(v5);
+
+				((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend8(v0, mask);
+				((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend8(v1, mask);
+				((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend8(v2, mask);
+				((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend8(v3, mask);
+			}
+		}
+		else
+		{
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = GSVector4i::xff000000();
+			GSVector4i mask0 = m_uw8hmask0;
+			GSVector4i mask1 = m_uw8hmask1;
+			GSVector4i mask2 = m_uw8hmask2;
+			GSVector4i mask3 = m_uw8hmask3;
+
+			for (int i = 0; i < 4; i++, src += srcpitch * 2)
+			{
+				v4 = GSVector4i::load(src, src + srcpitch);
+
+				v0 = v4.shuffle8(mask0);
+				v1 = v4.shuffle8(mask1);
+				v2 = v4.shuffle8(mask2);
+				v3 = v4.shuffle8(mask3);
+
+				((GSVector4i*)dst)[i * 4 + 0] = ((GSVector4i*)dst)[i * 4 + 0].blend8(v0, mask);
+				((GSVector4i*)dst)[i * 4 + 1] = ((GSVector4i*)dst)[i * 4 + 1].blend8(v1, mask);
+				((GSVector4i*)dst)[i * 4 + 2] = ((GSVector4i*)dst)[i * 4 + 2].blend8(v2, mask);
+				((GSVector4i*)dst)[i * 4 + 3] = ((GSVector4i*)dst)[i * 4 + 3].blend8(v3, mask);
+			}
 		}
 
 		#endif
@@ -1411,41 +1585,84 @@ public:
 
 		#elif _M_SSE >= 0x301
 
-		GSVector4i v0, v1, v2, v3;
-		GSVector4i mask = GSVector4i(0x0f000000);
-		GSVector4i mask0 = m_uw8hmask0;
-		GSVector4i mask1 = m_uw8hmask1;
-		GSVector4i mask2 = m_uw8hmask2;
-		GSVector4i mask3 = m_uw8hmask3;
-
-		for(int i = 0; i < 2; i++, src += srcpitch * 4)
+		if (SIMDLevel < SIMD_Level_SSSE3)
 		{
-			GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 3]);
+			GSVector4i v0, v1, v2, v3, v7;
+			GSVector4i mask = GSVector4i(0x0f000000);
 
-			v4 = v.upl8(v >> 4);
-			v5 = v.uph8(v >> 4);
+			for (int i = 0; i < 2; i++, src += srcpitch * 4)
+			{
+				GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 3]);
 
-			v0 = v4.shuffle8(mask0);
-			v1 = v4.shuffle8(mask1);
-			v2 = v4.shuffle8(mask2);
-			v3 = v4.shuffle8(mask3);
+				v4 = v.upl8(v >> 4);
+				v5 = v.uph8(v >> 4);
 
-			((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
-			((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
-			((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
-			((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+				v6 = v4.upl16(v5);
+				v7 = v4.uph16(v5);
 
-			v0 = v5.shuffle8(mask0);
-			v1 = v5.shuffle8(mask1);
-			v2 = v5.shuffle8(mask2);
-			v3 = v5.shuffle8(mask3);
+				v4 = v6.upl8(v6);
+				v5 = v6.uph8(v6);
+				v6 = v7.upl8(v7);
+				v7 = v7.uph8(v7);
 
-			((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
-			((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
-			((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
-			((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+				v0 = v4.upl16(v4);
+				v1 = v4.uph16(v4);
+				v2 = v5.upl16(v5);
+				v3 = v5.uph16(v5);
+
+				((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+
+				v0 = v6.upl16(v6);
+				v1 = v6.uph16(v6);
+				v2 = v7.upl16(v7);
+				v3 = v7.uph16(v7);
+
+				((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+			}
 		}
+		else
+		{
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = GSVector4i(0x0f000000);
+			GSVector4i mask0 = m_uw8hmask0;
+			GSVector4i mask1 = m_uw8hmask1;
+			GSVector4i mask2 = m_uw8hmask2;
+			GSVector4i mask3 = m_uw8hmask3;
 
+			for (int i = 0; i < 2; i++, src += srcpitch * 4)
+			{
+				GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 3]);
+
+				v4 = v.upl8(v >> 4);
+				v5 = v.uph8(v >> 4);
+
+				v0 = v4.shuffle8(mask0);
+				v1 = v4.shuffle8(mask1);
+				v2 = v4.shuffle8(mask2);
+				v3 = v4.shuffle8(mask3);
+
+				((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+
+				v0 = v5.shuffle8(mask0);
+				v1 = v5.shuffle8(mask1);
+				v2 = v5.shuffle8(mask2);
+				v3 = v5.shuffle8(mask3);
+
+				((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+			}
+		}
 		#endif
 	}
 
@@ -1498,41 +1715,84 @@ public:
 
 		#elif _M_SSE >= 0x301
 
-		GSVector4i v0, v1, v2, v3;
-		GSVector4i mask = GSVector4i::xf0000000();
-		GSVector4i mask0 = m_uw8hmask0;
-		GSVector4i mask1 = m_uw8hmask1;
-		GSVector4i mask2 = m_uw8hmask2;
-		GSVector4i mask3 = m_uw8hmask3;
-
-		for(int i = 0; i < 2; i++, src += srcpitch * 4)
+		if (SIMDLevel < SIMD_Level_SSSE3)
 		{
-			GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 3]);
+			GSVector4i v0, v1, v2, v3, v7;
+			GSVector4i mask = GSVector4i::xf0000000();
 
-			v4 = (v << 4).upl8(v);
-			v5 = (v << 4).uph8(v);
+			for (int i = 0; i < 2; i++, src += srcpitch * 4)
+			{
+				GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 3]);
 
-			v0 = v4.shuffle8(mask0);
-			v1 = v4.shuffle8(mask1);
-			v2 = v4.shuffle8(mask2);
-			v3 = v4.shuffle8(mask3);
+				v4 = (v << 4).upl8(v);
+				v5 = (v << 4).uph8(v);
 
-			((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
-			((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
-			((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
-			((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+				v6 = v4.upl16(v5);
+				v7 = v4.uph16(v5);
 
-			v0 = v5.shuffle8(mask0);
-			v1 = v5.shuffle8(mask1);
-			v2 = v5.shuffle8(mask2);
-			v3 = v5.shuffle8(mask3);
+				v4 = v6.upl8(v6);
+				v5 = v6.uph8(v6);
+				v6 = v7.upl8(v7);
+				v7 = v7.uph8(v7);
 
-			((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
-			((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
-			((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
-			((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+				v0 = v4.upl16(v4);
+				v1 = v4.uph16(v4);
+				v2 = v5.upl16(v5);
+				v3 = v5.uph16(v5);
+
+				((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+
+				v0 = v6.upl16(v6);
+				v1 = v6.uph16(v6);
+				v2 = v7.upl16(v7);
+				v3 = v7.uph16(v7);
+
+				((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+			}
 		}
+		else
+		{
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = GSVector4i::xf0000000();
+			GSVector4i mask0 = m_uw8hmask0;
+			GSVector4i mask1 = m_uw8hmask1;
+			GSVector4i mask2 = m_uw8hmask2;
+			GSVector4i mask3 = m_uw8hmask3;
 
+			for (int i = 0; i < 2; i++, src += srcpitch * 4)
+			{
+				GSVector4i v(*(uint32*)&src[srcpitch * 0], *(uint32*)&src[srcpitch * 1], *(uint32*)&src[srcpitch * 2], *(uint32*)&src[srcpitch * 3]);
+
+				v4 = (v << 4).upl8(v);
+				v5 = (v << 4).uph8(v);
+
+				v0 = v4.shuffle8(mask0);
+				v1 = v4.shuffle8(mask1);
+				v2 = v4.shuffle8(mask2);
+				v3 = v4.shuffle8(mask3);
+
+				((GSVector4i*)dst)[i * 8 + 0] = ((GSVector4i*)dst)[i * 8 + 0].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 1] = ((GSVector4i*)dst)[i * 8 + 1].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 2] = ((GSVector4i*)dst)[i * 8 + 2].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 3] = ((GSVector4i*)dst)[i * 8 + 3].blend(v3, mask);
+
+				v0 = v5.shuffle8(mask0);
+				v1 = v5.shuffle8(mask1);
+				v2 = v5.shuffle8(mask2);
+				v3 = v5.shuffle8(mask3);
+
+				((GSVector4i*)dst)[i * 8 + 4] = ((GSVector4i*)dst)[i * 8 + 4].blend(v0, mask);
+				((GSVector4i*)dst)[i * 8 + 5] = ((GSVector4i*)dst)[i * 8 + 5].blend(v1, mask);
+				((GSVector4i*)dst)[i * 8 + 6] = ((GSVector4i*)dst)[i * 8 + 6].blend(v2, mask);
+				((GSVector4i*)dst)[i * 8 + 7] = ((GSVector4i*)dst)[i * 8 + 7].blend(v3, mask);
+			}
+		}
 		#endif
 	}
 
@@ -1652,47 +1912,57 @@ public:
 	__forceinline static void ReadAndExpandBlock8_32(const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
 		//printf("ReadAndExpandBlock8_32\n");
-
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-		GSVector4i mask = m_r8mask;
-
-		for(int i = 0; i < 2; i++)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			v0 = s[i * 8 + 0].shuffle8(mask);
-			v1 = s[i * 8 + 1].shuffle8(mask);
-			v2 = s[i * 8 + 2].shuffle8(mask);
-			v3 = s[i * 8 + 3].shuffle8(mask);
+			alignas(32) uint8 block[16 * 16];
 
-			GSVector4i::sw16(v0, v1, v2, v3);
-			GSVector4i::sw32(v0, v1, v3, v2);
+			ReadBlock8(src, (uint8*)block, sizeof(block) / 16);
 
-			v0.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v3.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v1.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v2.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
+			ExpandBlock8_32(block, dst, dstpitch, pal);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-			v2 = s[i * 8 + 4].shuffle8(mask);
-			v3 = s[i * 8 + 5].shuffle8(mask);
-			v0 = s[i * 8 + 6].shuffle8(mask);
-			v1 = s[i * 8 + 7].shuffle8(mask);
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = m_r8mask;
 
-			GSVector4i::sw16(v0, v1, v2, v3);
-			GSVector4i::sw32(v0, v1, v3, v2);
+			for (int i = 0; i < 2; i++)
+			{
+				v0 = s[i * 8 + 0].shuffle8(mask);
+				v1 = s[i * 8 + 1].shuffle8(mask);
+				v2 = s[i * 8 + 2].shuffle8(mask);
+				v3 = s[i * 8 + 3].shuffle8(mask);
 
-			v0.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v3.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v1.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v2.gather32_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
+				GSVector4i::sw16(v0, v1, v2, v3);
+				GSVector4i::sw32(v0, v1, v3, v2);
+
+				v0.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v3.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v1.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v2.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+
+				v2 = s[i * 8 + 4].shuffle8(mask);
+				v3 = s[i * 8 + 5].shuffle8(mask);
+				v0 = s[i * 8 + 6].shuffle8(mask);
+				v1 = s[i * 8 + 7].shuffle8(mask);
+
+				GSVector4i::sw16(v0, v1, v2, v3);
+				GSVector4i::sw32(v0, v1, v3, v2);
+
+				v0.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v3.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v1.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v2.gather32_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+			}
 		}
 	}
 
@@ -1701,63 +1971,73 @@ public:
 	__forceinline static void ReadAndExpandBlock4_32(const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint64* RESTRICT pal)
 	{
 		//printf("ReadAndExpandBlock4_32\n");
-
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-		GSVector4i mask = m_r4mask;
-
-		for(int i = 0; i < 2; i++)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			v0 = s[i * 8 + 0].xzyw();
-			v1 = s[i * 8 + 1].xzyw();
-			v2 = s[i * 8 + 2].xzyw();
-			v3 = s[i * 8 + 3].xzyw();
+			alignas(32) uint8 block[(32 / 2) * 16];
 
-			GSVector4i::sw64(v0, v1, v2, v3);
-			GSVector4i::sw4(v0, v2, v1, v3);
-			GSVector4i::sw8(v0, v1, v2, v3);
+			ReadBlock4(src, (uint8*)block, sizeof(block) / 16);
 
-			v0 = v0.shuffle8(mask);
-			v1 = v1.shuffle8(mask);
-			v2 = v2.shuffle8(mask);
-			v3 = v3.shuffle8(mask);
+			ExpandBlock4_32(block, dst, dstpitch, pal);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-			GSVector4i::sw16rh(v0, v1, v2, v3);
+			GSVector4i v0, v1, v2, v3;
+			GSVector4i mask = m_r4mask;
 
-			v0.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v1.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v2.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v3.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
+			for (int i = 0; i < 2; i++)
+			{
+				v0 = s[i * 8 + 0].xzyw();
+				v1 = s[i * 8 + 1].xzyw();
+				v2 = s[i * 8 + 2].xzyw();
+				v3 = s[i * 8 + 3].xzyw();
 
-			v0 = s[i * 8 + 4].xzyw();
-			v1 = s[i * 8 + 5].xzyw();
-			v2 = s[i * 8 + 6].xzyw();
-			v3 = s[i * 8 + 7].xzyw();
+				GSVector4i::sw64(v0, v1, v2, v3);
+				GSVector4i::sw4(v0, v2, v1, v3);
+				GSVector4i::sw8(v0, v1, v2, v3);
 
-			GSVector4i::sw64(v0, v1, v2, v3);
-			GSVector4i::sw4(v0, v2, v1, v3);
-			GSVector4i::sw8(v0, v1, v2, v3);
+				v0 = v0.shuffle8(mask);
+				v1 = v1.shuffle8(mask);
+				v2 = v2.shuffle8(mask);
+				v3 = v3.shuffle8(mask);
 
-			v0 = v0.shuffle8(mask);
-			v1 = v1.shuffle8(mask);
-			v2 = v2.shuffle8(mask);
-			v3 = v3.shuffle8(mask);
+				GSVector4i::sw16rh(v0, v1, v2, v3);
 
-			GSVector4i::sw16rl(v0, v1, v2, v3);
+				v0.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v1.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v2.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v3.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
 
-			v0.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v1.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v2.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
-			v3.gather64_8<>(pal, (GSVector4i*)dst);
-			dst += dstpitch;
+				v0 = s[i * 8 + 4].xzyw();
+				v1 = s[i * 8 + 5].xzyw();
+				v2 = s[i * 8 + 6].xzyw();
+				v3 = s[i * 8 + 7].xzyw();
+
+				GSVector4i::sw64(v0, v1, v2, v3);
+				GSVector4i::sw4(v0, v2, v1, v3);
+				GSVector4i::sw8(v0, v1, v2, v3);
+
+				v0 = v0.shuffle8(mask);
+				v1 = v1.shuffle8(mask);
+				v2 = v2.shuffle8(mask);
+				v3 = v3.shuffle8(mask);
+
+				GSVector4i::sw16rl(v0, v1, v2, v3);
+
+				v0.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v1.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v2.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+				v3.gather64_8<>(pal, (GSVector4i*)dst);
+				dst += dstpitch;
+			}
 		}
 	}
 
@@ -1766,29 +2046,39 @@ public:
 	__forceinline static void ReadAndExpandBlock8H_32(const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
 		//printf("ReadAndExpandBlock8H_32\n");
-
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-
-		for(int i = 0; i < 4; i++)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			v0 = s[i * 4 + 0];
-			v1 = s[i * 4 + 1];
-			v2 = s[i * 4 + 2];
-			v3 = s[i * 4 + 3];
+			alignas(32) uint32 block[8 * 8];
 
-			GSVector4i::sw64(v0, v1, v2, v3);
+			ReadBlock32(src, (uint8*)block, sizeof(block) / 8);
 
-			(v0 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			(v1 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			ExpandBlock8H_32(block, dst, dstpitch, pal);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-			dst += dstpitch;
+			GSVector4i v0, v1, v2, v3;
 
-			(v2 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			(v3 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			for (int i = 0; i < 4; i++)
+			{
+				v0 = s[i * 4 + 0];
+				v1 = s[i * 4 + 1];
+				v2 = s[i * 4 + 2];
+				v3 = s[i * 4 + 3];
 
-			dst += dstpitch;
+				GSVector4i::sw64(v0, v1, v2, v3);
+
+				(v0 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				(v1 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+
+				(v2 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				(v3 >> 24).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+			}
 		}
 	}
 
@@ -1797,28 +2087,39 @@ public:
 	__forceinline static void ReadAndExpandBlock4HL_32(const uint8* RESTRICT src, uint8* RESTRICT dst, int dstpitch, const uint32* RESTRICT pal)
 	{
 		//printf("ReadAndExpandBlock4HL_32\n");
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-
-		for(int i = 0; i < 4; i++)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			v0 = s[i * 4 + 0];
-			v1 = s[i * 4 + 1];
-			v2 = s[i * 4 + 2];
-			v3 = s[i * 4 + 3];
+			alignas(32) uint32 block[8 * 8];
 
-			GSVector4i::sw64(v0, v1, v2, v3);
+			ReadBlock32(src, (uint8*)block, sizeof(block) / 8);
 
-			((v0 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			((v1 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			ExpandBlock4HL_32(block, dst, dstpitch, pal);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-			dst += dstpitch;
+			GSVector4i v0, v1, v2, v3;
 
-			((v2 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			((v3 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			for (int i = 0; i < 4; i++)
+			{
+				v0 = s[i * 4 + 0];
+				v1 = s[i * 4 + 1];
+				v2 = s[i * 4 + 2];
+				v3 = s[i * 4 + 3];
 
-			dst += dstpitch;
+				GSVector4i::sw64(v0, v1, v2, v3);
+
+				((v0 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				((v1 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+
+				((v2 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				((v3 >> 24) & 0xf).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+			}
 		}
 	}
 
@@ -1828,28 +2129,39 @@ public:
 	{
 		//printf("ReadAndExpandBlock4HH_32\n");
 
-		const GSVector4i* s = (const GSVector4i*)src;
-
-		GSVector4i v0, v1, v2, v3;
-
-		for(int i = 0; i < 4; i++)
+		if (SIMDLevel < SIMD_Level_SSE41)
 		{
-			v0 = s[i * 4 + 0];
-			v1 = s[i * 4 + 1];
-			v2 = s[i * 4 + 2];
-			v3 = s[i * 4 + 3];
+			alignas(32) uint32 block[8 * 8];
 
-			GSVector4i::sw64(v0, v1, v2, v3);
+			ReadBlock32(src, (uint8*)block, sizeof(block) / 8);
 
-			(v0 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			(v1 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			ExpandBlock4HH_32(block, dst, dstpitch, pal);
+		}
+		else
+		{
+			const GSVector4i* s = (const GSVector4i*)src;
 
-			dst += dstpitch;
+			GSVector4i v0, v1, v2, v3;
 
-			(v2 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[0]);
-			(v3 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+			for (int i = 0; i < 4; i++)
+			{
+				v0 = s[i * 4 + 0];
+				v1 = s[i * 4 + 1];
+				v2 = s[i * 4 + 2];
+				v3 = s[i * 4 + 3];
 
-			dst += dstpitch;
+				GSVector4i::sw64(v0, v1, v2, v3);
+
+				(v0 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				(v1 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+
+				(v2 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[0]);
+				(v3 >> 28).gather32_32<>(pal, (GSVector4i*)&dst[16]);
+
+				dst += dstpitch;
+			}
 		}
 	}
 
