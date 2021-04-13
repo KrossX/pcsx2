@@ -251,7 +251,32 @@ public:
 	template <int mode>
 	__forceinline GSVector4 round() const
 	{
-		return GSVector4(_mm_round_ps(m, mode));
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			GSVector4 a = *this;
+
+			GSVector4 b = (a & cast(GSVector4i::x80000000())) | m_x4b000000;
+
+			b = a + b - b;
+
+			if ((mode & 7) == (Round_NegInf & 7))
+			{
+				return b - ((a < b) & m_one);
+			}
+
+			if ((mode & 7) == (Round_PosInf & 7))
+			{
+				return b + ((a > b) & m_one);
+			}
+
+			ASSERT((mode & 7) == (Round_NearestInt & 7)); // other modes aren't implemented
+
+			return b;
+		}
+		else
+		{
+			return GSVector4(_mm_round_ps(m, mode));
+		}
 	}
 
 	__forceinline GSVector4 floor() const
@@ -379,22 +404,50 @@ public:
 
 	__forceinline GSVector4 hadd() const
 	{
-		return GSVector4(_mm_hadd_ps(m, m));
+		if (SIMDLevel < SIMD_Level_SSE3)
+		{
+			return xzxz() + ywyw();
+		}
+		else
+		{
+			return GSVector4(_mm_hadd_ps(m, m));
+		}
 	}
 
 	__forceinline GSVector4 hadd(const GSVector4& v) const
 	{
-		return GSVector4(_mm_hadd_ps(m, v.m));
+		if (SIMDLevel < SIMD_Level_SSE3)
+		{
+			return xzxz(v) + ywyw(v);
+		}
+		else
+		{
+			return GSVector4(_mm_hadd_ps(m, v.m));
+		}
 	}
 
 	__forceinline GSVector4 hsub() const
 	{
-		return GSVector4(_mm_hsub_ps(m, m));
+		if (SIMDLevel < SIMD_Level_SSE3)
+		{
+			return xzxz() - ywyw();
+		}
+		else
+		{
+			return GSVector4(_mm_hsub_ps(m, m));
+		}
 	}
 
 	__forceinline GSVector4 hsub(const GSVector4& v) const
 	{
-		return GSVector4(_mm_hsub_ps(m, v.m));
+		if (SIMDLevel < SIMD_Level_SSE3)
+		{
+			return xzxz(v) - ywyw(v);
+		}
+		else
+		{
+			return GSVector4(_mm_hsub_ps(m, v.m));
+		}
 	}
 
 	template <int i>
@@ -441,7 +494,14 @@ public:
 
 	__forceinline GSVector4 blend32(const GSVector4& a, const GSVector4& mask) const
 	{
-		return GSVector4(_mm_blendv_ps(m, a, mask));
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4(_mm_or_ps(_mm_andnot_ps(mask, m), _mm_and_ps(mask, a)));
+		}
+		else
+		{
+			return GSVector4(_mm_blendv_ps(m, a, mask));
+		}
 	}
 
 	__forceinline GSVector4 upl(const GSVector4& a) const
@@ -497,10 +557,16 @@ public:
 
 		#else
 
-		__m128i a = _mm_castps_si128(m);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			return mask() == 0;
+		}
+		else
+		{
+			__m128i a = _mm_castps_si128(m);
 
-		return _mm_testz_si128(a, a) != 0;
-
+			return _mm_testz_si128(a, a) != 0;
+		}
 #endif
 	}
 
@@ -589,13 +655,27 @@ GSVector.h:2973:15: error:  shadows template parm 'int i'
 	template <int index>
 	__forceinline int extract32() const
 	{
-		return _mm_extract_ps(m, index);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			return i32[index];
+		}
+		else
+		{
+			return _mm_extract_ps(m, index);
+		}
 	}
 #else
 	template <int i>
 	__forceinline int extract32() const
 	{
-		return _mm_extract_ps(m, i);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			return i32[i];
+		}
+		else
+		{
+			return _mm_extract_ps(m, i);
+		}
 	}
 #endif
 

@@ -218,7 +218,8 @@ bool GSUtil::CheckSSE()
 	};
 
 	ISA checks[] = {
-		{Xbyak::util::Cpu::tSSE41, "SSE41"},
+		{Xbyak::util::Cpu::tSSE2, "SSE2"},
+		//{Xbyak::util::Cpu::tSSE41, "SSE41"},
 #if _M_SSE >= 0x500
 		{Xbyak::util::Cpu::tAVX, "AVX1"},
 #endif
@@ -238,6 +239,11 @@ bool GSUtil::CheckSSE()
 			status = false;
 		}
 	}
+
+	if (g_cpu.has(Xbyak::util::Cpu::tSSE2)) SIMDLevel  = SIMD_Level_SSE2;
+	if (g_cpu.has(Xbyak::util::Cpu::tSSE3)) SIMDLevel  = SIMD_Level_SSE3;
+	if (g_cpu.has(Xbyak::util::Cpu::tSSSE3)) SIMDLevel = SIMD_Level_SSSE3;
+	if (g_cpu.has(Xbyak::util::Cpu::tSSE41)) SIMDLevel = SIMD_Level_SSE41;
 
 	return status;
 }

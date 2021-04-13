@@ -123,7 +123,18 @@ void GSDrawScanlineCodeGenerator::mix16(const Xmm& a, const Xmm& b, const Xmm& t
 	}
 	else
 	{
-		pblendw(a, b, 0xaa);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			pcmpeqd(temp, temp);
+			psrld(temp, 16);
+			pand(a, temp);
+			pandn(temp, b);
+			por(a, temp);
+		}
+		else
+		{
+			pblendw(a, b, 0xaa);
+		}
 	}
 }
 
@@ -146,8 +157,17 @@ void GSDrawScanlineCodeGenerator::clamp16(const Xmm& a, const Xmm& temp)
 	}
 	else
 	{
-		packuswb(a, a);
-		pmovzxbw(a, a);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			packuswb(a, a);
+			pxor(temp, temp);
+			punpcklbw(a, temp);
+		}
+		else
+		{
+			packuswb(a, a);
+			pmovzxbw(a, a);
+		}
 	}
 }
 
@@ -207,7 +227,16 @@ void GSDrawScanlineCodeGenerator::blend8(const Xmm& a, const Xmm& b)
 	if (m_cpu.has(util::Cpu::tAVX))
 		vpblendvb(a, a, b, xmm0);
 	else
-		pblendvb(a, b);
+	{
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			blend(a, b, xmm0);
+		}
+		else
+		{
+			pblendvb(a, b);
+		}
+	}
 }
 
 void GSDrawScanlineCodeGenerator::blend8r(const Xmm& b, const Xmm& a)
@@ -218,8 +247,15 @@ void GSDrawScanlineCodeGenerator::blend8r(const Xmm& b, const Xmm& a)
 	}
 	else
 	{
-		pblendvb(a, b);
-		movdqa(b, a);
+		if (SIMDLevel < SIMD_Level_SSE41)
+		{
+			blendr(b, a, xmm0);
+		}
+		else
+		{
+			pblendvb(a, b);
+			movdqa(b, a);
+		}
 	}
 }
 

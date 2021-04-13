@@ -428,3 +428,12 @@ extern const std::string root_hw;
 #else
 #  define CONSTINIT
 #endif
+
+enum SIMD_Level {
+	SIMD_Level_SSE2,
+	SIMD_Level_SSE3,
+	SIMD_Level_SSSE3,
+	SIMD_Level_SSE41,
+};
+
+extern uint32_t SIMDLevel;

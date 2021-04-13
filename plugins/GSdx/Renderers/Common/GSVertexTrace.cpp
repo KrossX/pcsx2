@@ -181,9 +181,10 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 	GSVector4 tmax = s_minmax.yyyy();
 	GSVector4i cmin = GSVector4i::xffffffff();
 	GSVector4i cmax = GSVector4i::zero();
-
-	GSVector4i pmin = GSVector4i::xffffffff();
-	GSVector4i pmax = GSVector4i::zero();
+	GSVector4  pminf = s_minmax.xxxx();
+	GSVector4  pmaxf = s_minmax.yyyy();
+	GSVector4i pmini = GSVector4i::xffffffff();
+	GSVector4i pmaxi = GSVector4i::zero();
 
 	const GSVertex* RESTRICT v = (GSVertex*)vertex;
 
@@ -231,10 +232,20 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 			GSVector4i xy = xyzf.upl16();
 			GSVector4i z = xyzf.yyyy();
 
-			GSVector4i p = xy.blend16<0xf0>(z.uph32(xyzf));
+			if (SIMDLevel < SIMD_Level_SSE41)
+			{
+				GSVector4 p = GSVector4(xy.upl64(z.srl32(1).upl32(xyzf.wwww())));
 
-			pmin = pmin.min_u32(p);
-			pmax = pmax.max_u32(p);
+				pminf = pminf.min(p);
+				pmaxf = pmaxf.max(p);
+			}
+			else
+			{
+				GSVector4i p = xy.blend16<0xf0>(z.uph32(xyzf));
+
+				pmini = pmini.min_u32(p);
+				pmaxi = pmaxi.max_u32(p);
+			}
 		}
 		else if (primclass == GS_LINE_CLASS)
 		{
@@ -301,11 +312,22 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 			GSVector4i xy1 = xyzf1.upl16();
 			GSVector4i z1 = xyzf1.yyyy();
 
-			GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf0));
-			GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
+			if (SIMDLevel < SIMD_Level_SSE41)
+			{
+				GSVector4 p0 = GSVector4(xy0.upl64(z0.srl32(1).upl32(xyzf0.wwww())));
+				GSVector4 p1 = GSVector4(xy1.upl64(z1.srl32(1).upl32(xyzf1.wwww())));
 
-			pmin = pmin.min_u32(p0.min_u32(p1));
-			pmax = pmax.max_u32(p0.max_u32(p1));
+				pminf = pminf.min(p0.min(p1));
+				pmaxf = pmaxf.max(p0.max(p1));
+			}
+			else
+			{
+				GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf0));
+				GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
+
+				pmini = pmini.min_u32(p0.min_u32(p1));
+				pmaxi = pmaxi.max_u32(p0.max_u32(p1));
+			}
 		}
 		else if (primclass == GS_TRIANGLE_CLASS)
 		{
@@ -381,12 +403,24 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 			GSVector4i xy2 = xyzf2.upl16();
 			GSVector4i z2 = xyzf2.yyyy();
 
-			GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf0));
-			GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
-			GSVector4i p2 = xy2.blend16<0xf0>(z2.uph32(xyzf2));
+			if (SIMDLevel < SIMD_Level_SSE41)
+			{
+				GSVector4 p0 = GSVector4(xy0.upl64(z0.srl32(1).upl32(xyzf0.wwww())));
+				GSVector4 p1 = GSVector4(xy1.upl64(z1.srl32(1).upl32(xyzf1.wwww())));
+				GSVector4 p2 = GSVector4(xy2.upl64(z2.srl32(1).upl32(xyzf2.wwww())));
 
-			pmin = pmin.min_u32(p2).min_u32(p0.min_u32(p1));
-			pmax = pmax.max_u32(p2).max_u32(p0.max_u32(p1));
+				pminf = pminf.min(p2).min(p0.min(p1));
+				pmaxf = pmaxf.max(p2).max(p0.max(p1));
+			}
+			else
+			{
+				GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf0));
+				GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
+				GSVector4i p2 = xy2.blend16<0xf0>(z2.uph32(xyzf2));
+
+				pmini = pmini.min_u32(p2).min_u32(p0.min_u32(p1));
+				pmaxi = pmaxi.max_u32(p2).max_u32(p0.max_u32(p1));
+			}
 		}
 		else if (primclass == GS_SPRITE_CLASS)
 		{
@@ -453,11 +487,22 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 			GSVector4i xy1 = xyzf1.upl16();
 			GSVector4i z1 = xyzf1.yyyy();
 
-			GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf1));
-			GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
+			if (SIMDLevel < SIMD_Level_SSE41)
+			{
+				GSVector4 p0 = GSVector4(xy0.upl64(z0.srl32(1).upl32(xyzf1.wwww())));
+				GSVector4 p1 = GSVector4(xy1.upl64(z1.srl32(1).upl32(xyzf1.wwww())));
 
-			pmin = pmin.min_u32(p0.min_u32(p1));
-			pmax = pmax.max_u32(p0.max_u32(p1));
+				pminf = pminf.min(p0.min(p1));
+				pmaxf = pmaxf.max(p0.max(p1));
+			}
+			else
+			{
+				GSVector4i p0 = xy0.blend16<0xf0>(z0.uph32(xyzf1));
+				GSVector4i p1 = xy1.blend16<0xf0>(z1.uph32(xyzf1));
+
+				pmini = pmini.min_u32(p0.min_u32(p1));
+				pmaxi = pmaxi.max_u32(p0.max_u32(p1));
+			}
 		}
 	}
 
@@ -465,15 +510,25 @@ void GSVertexTrace::FindMinMax(const void* vertex, const uint32* index, int coun
 	// negative value. However it means that we lost the lsb bit. m_eq.z could
 	// be true if depth isn't constant but close enough. It also imply that
 	// pmin.z & 1 == 0 and pax.z & 1 == 0
-
-	pmin = pmin.blend16<0x30>(pmin.srl32(1));
-	pmax = pmax.blend16<0x30>(pmax.srl32(1));
+	if (SIMDLevel >= SIMD_Level_SSE41)
+	{
+		pmini = pmini.blend16<0x30>(pmini.srl32(1));
+		pmaxi = pmaxi.blend16<0x30>(pmaxi.srl32(1));
+	}
 
 	GSVector4 o(context->XYOFFSET);
 	GSVector4 s(1.0f / 16, 1.0f / 16, 2.0f, 1.0f);
 
-	m_min.p = (GSVector4(pmin) - o) * s;
-	m_max.p = (GSVector4(pmax) - o) * s;
+	if (SIMDLevel < SIMD_Level_SSE41)
+	{
+		m_min.p = (pminf - o) * s;
+		m_max.p = (pmaxf - o) * s;
+	}
+	else
+	{
+		m_min.p = (GSVector4(pmini) - o) * s;
+		m_max.p = (GSVector4(pmaxi) - o) * s;
+	}
 
 	if (tme)
 	{
