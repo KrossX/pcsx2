@@ -109,6 +109,8 @@ public:
 	u32 PhysicalCores;
 	u32 LogicalCores;
 
+	u32 SIMDLevel;
+
 public:
 	x86capabilities();
 
@@ -124,6 +126,14 @@ public:
 protected:
 	s64 _CPUSpeedHz(u64 time) const;
 	void CountLogicalCores();
+};
+
+enum SIMD_Level
+{
+	SIMD_Level_SSE2,
+	SIMD_Level_SSE3,
+	SIMD_Level_SSSE3,
+	SIMD_Level_SSE41
 };
 
 enum SSE_RoundMode
