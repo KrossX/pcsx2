@@ -109,10 +109,28 @@ static void recMFHILO(bool hi, bool upper)
 		else
 		{
 			const int gprhilo = upper ? -1 : _allocIfUsedGPRtoX86(reg, MODE_READ);
-			if (gprhilo >= 0)
-				xPINSR.Q(xRegisterSSE(xmmd), xRegister64(gprhilo), 0);
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				if (gprhilo >= 0)
+				{
+					int tmp = _allocTempXMMreg(XMMT_INT);
+					xMOVDZX(xRegisterSSE(tmp), xRegister64(gprhilo));
+					xMOVSD(xRegisterSSE(xmmd), xRegisterSSE(tmp));
+					_freeXMMreg(tmp);
+				}
+				else
+				{
+					xMOVL.PS(xRegisterSSE(xmmd), ptr64[hi ? &cpuRegs.HI.UD[static_cast<u8>(upper)] : &cpuRegs.LO.UD[static_cast<u8>(upper)]]);
+				}
+			}
 			else
-				xPINSR.Q(xRegisterSSE(xmmd), ptr64[hi ? &cpuRegs.HI.UD[static_cast<u8>(upper)] : &cpuRegs.LO.UD[static_cast<u8>(upper)]], 0);
+			{
+				if (gprhilo >= 0)
+					xPINSR.Q(xRegisterSSE(xmmd), xRegister64(gprhilo), 0);
+				else
+					xPINSR.Q(xRegisterSSE(xmmd), ptr64[hi ? &cpuRegs.HI.UD[static_cast<u8>(upper)] : &cpuRegs.LO.UD[static_cast<u8>(upper)]], 0);
+			}
 		}
 	}
 	else
@@ -127,7 +145,16 @@ static void recMFHILO(bool hi, bool upper)
 		{
 			pxAssert(gprreg < 0);
 			if (upper)
-				xPEXTR.Q(xRegister64(gprd), xRegisterSSE(xmmhilo), 1);
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+				{
+					xPSHUF.D(xRegisterSSE(xmmhilo), xRegisterSSE(xmmhilo), 0x4E); // 1 0 3 2
+					xMOVD(xRegister64(gprd), xRegisterSSE(xmmhilo));
+					xPSHUF.D(xRegisterSSE(xmmhilo), xRegisterSSE(xmmhilo), 0x4E);
+				}
+				else
+				{
+					xPEXTR.Q(xRegister64(gprd), xRegisterSSE(xmmhilo), 1);
+				}
 			else
 				xMOVD(xRegister64(gprd), xRegisterSSE(xmmhilo));
 		}
@@ -135,7 +162,16 @@ static void recMFHILO(bool hi, bool upper)
 		{
 			pxAssert(gprreg < 0);
 			if (upper)
-				xPEXTR.Q(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], xRegisterSSE(xmmhilo), 1);
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+				{
+					xPSHUF.D(xRegisterSSE(xmmhilo), xRegisterSSE(xmmhilo), 0x4E); // 1 0 3 2
+					xMOVQ(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], xRegisterSSE(xmmhilo));
+					xPSHUF.D(xRegisterSSE(xmmhilo), xRegisterSSE(xmmhilo), 0x4E);
+				}
+				else
+				{
+					xPEXTR.Q(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], xRegisterSSE(xmmhilo), 1);
+				}
 			else
 				xMOVQ(ptr64[&cpuRegs.GPR.r[_Rd_].UD[0]], xRegisterSSE(xmmhilo));
 		}
@@ -192,18 +228,57 @@ static void recMTHILO(bool hi, bool upper)
 
 		if (xmmhilo >= 0)
 		{
-			if (gprs >= 0)
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
 			{
-				xPINSR.Q(xRegisterSSE(xmmhilo), xRegister64(gprs), static_cast<u8>(upper));
-			}
-			else if (GPR_IS_CONST1(_Rs_))
-			{
-				_eeMoveGPRtoR(rax, _Rs_);
-				xPINSR.Q(xRegisterSSE(xmmhilo), rax, static_cast<u8>(upper));
+				if (gprs >= 0)
+				{
+					int tmp = _allocTempXMMreg(XMMT_INT);
+					xMOVDZX(xRegisterSSE(tmp), xRegister64(gprs));
+
+					if (upper)
+						xMOVLH.PS(xRegisterSSE(xmmhilo), xRegisterSSE(tmp));
+					else
+						xMOVSD(xRegisterSSE(xmmhilo), xRegisterSSE(tmp));
+
+					_freeXMMreg(tmp);
+				}
+				else if (GPR_IS_CONST1(_Rs_))
+				{
+					_eeMoveGPRtoR(rax, _Rs_);
+
+					int tmp = _allocTempXMMreg(XMMT_INT);
+					xMOVDZX(xRegisterSSE(tmp), rax);
+
+					if (upper)
+						xMOVLH.PS(xRegisterSSE(xmmhilo), xRegisterSSE(tmp));
+					else
+						xMOVSD(xRegisterSSE(xmmhilo), xRegisterSSE(tmp));
+
+					_freeXMMreg(tmp);
+				}
+				else
+				{
+					if (upper)
+						xMOVH.PS(xRegisterSSE(xmmhilo), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
+					else
+						xMOVL.PS(xRegisterSSE(xmmhilo), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]]);
+				}
 			}
 			else
 			{
-				xPINSR.Q(xRegisterSSE(xmmhilo), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], static_cast<u8>(upper));
+				if (gprs >= 0)
+				{
+					xPINSR.Q(xRegisterSSE(xmmhilo), xRegister64(gprs), static_cast<u8>(upper));
+				}
+				else if (GPR_IS_CONST1(_Rs_))
+				{
+					_eeMoveGPRtoR(rax, _Rs_);
+					xPINSR.Q(xRegisterSSE(xmmhilo), rax, static_cast<u8>(upper));
+				}
+				else
+				{
+					xPINSR.Q(xRegisterSSE(xmmhilo), ptr64[&cpuRegs.GPR.r[_Rs_].UD[0]], static_cast<u8>(upper));
+				}
 			}
 		}
 		else

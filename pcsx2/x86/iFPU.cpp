@@ -197,7 +197,18 @@ void recMFC1()
 		xMOVAPS(xRegisterSSE(temp), xRegisterSSE(regs));
 		xPSRA.D(xRegisterSSE(temp), 31);
 		xMOVSS(xRegisterSSE(xmmregt), xRegisterSSE(regs));
-		xINSERTPS(xRegisterSSE(xmmregt), xRegisterSSE(temp), _MM_MK_INSERTPS_NDX(0, 1, 0));
+
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			xPSHUF.D(xRegisterSSE(xmmregt), xRegisterSSE(xmmregt), 0xe1);
+			xMOVSS(xRegisterSSE(xmmregt), xRegisterSSE(temp));
+			xPSHUF.D(xRegisterSSE(xmmregt), xRegisterSSE(xmmregt), 0xe1);
+		}
+		else
+		{
+			xINSERTPS(xRegisterSSE(xmmregt), xRegisterSSE(temp), _MM_MK_INSERTPS_NDX(0, 1, 0));
+		}
+
 		_freeXMMreg(temp);
 		return;
 	}
