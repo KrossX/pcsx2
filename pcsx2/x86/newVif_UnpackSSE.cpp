@@ -60,14 +60,47 @@ void VifUnpackSSE_Base::xShiftR(const xRegisterSSE& regX, int n) const
 
 void VifUnpackSSE_Base::xPMOVXX8(const xRegisterSSE& regX) const
 {
-	if (usn) xPMOVZX.BD(regX, ptr32[srcIndirect]);
-	else     xPMOVSX.BD(regX, ptr32[srcIndirect]);
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		xMOV32(regX, ptr32[srcIndirect]);
+		xPUNPCK.LBW(regX, regX);
+		xPUNPCK.LWD(regX, regX);
+		xShiftR(regX, 24);
+	}
+	else
+	{
+		if (usn) xPMOVZX.BD(regX, ptr32[srcIndirect]);
+		else     xPMOVSX.BD(regX, ptr32[srcIndirect]);
+	}
 }
 
 void VifUnpackSSE_Base::xPMOVXX16(const xRegisterSSE& regX) const
 {
-	if (usn) xPMOVZX.WD(regX, ptr64[srcIndirect]);
-	else     xPMOVSX.WD(regX, ptr64[srcIndirect]);
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		xMOV64(regX, ptr64[srcIndirect]);
+		xPUNPCK.LWD(regX, regX);
+		xShiftR(regX, 16);
+	}
+	else
+	{
+		if (usn) xPMOVZX.WD(regX, ptr64[srcIndirect]);
+		else     xPMOVSX.WD(regX, ptr64[srcIndirect]);
+	}
+}
+
+void VifUnpackSSE_Base::xZeroLastWord(const xRegisterSSE& regX) const
+{
+	alignas(16) static const u32 zeromask[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0x00000000};
+
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		xAND.PS(regX, ptr128[zeromask]);
+	}
+	else
+	{
+		xBLEND.PS(regX, zeroReg, 0x8);
+	}
 }
 
 void VifUnpackSSE_Base::xUPK_S_32() const
@@ -161,7 +194,7 @@ void VifUnpackSSE_Base::xUPK_V2_32() const
 
 		xPSHUF.D(destReg, workReg, 0x44); //v1v0v1v0
 		if (IsAligned)
-			xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+			xZeroLastWord(destReg); //zero last word - tested on ps2
 	}
 	else
 	{
@@ -170,7 +203,7 @@ void VifUnpackSSE_Base::xUPK_V2_32() const
 
 		xPSHUF.D(destReg, workReg, 0xEE); //v3v2v3v2
 		if (IsAligned)
-			xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+			xZeroLastWord(destReg); //zero last word - tested on ps2
 	}
 }
 
@@ -221,7 +254,7 @@ void VifUnpackSSE_Base::xUPK_V3_32() const
 
 	xMOV128(destReg, ptr128[srcIndirect]);
 	if (UnpkLoopIteration != IsAligned)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xZeroLastWord(destReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V3_16() const
@@ -238,7 +271,7 @@ void VifUnpackSSE_Base::xUPK_V3_16() const
 	int result = (((UnpkLoopIteration / 4) + 1 + (4 - IsAligned)) & 0x3);
 
 	if ((UnpkLoopIteration & 0x1) == 0 && result == 0)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xZeroLastWord(destReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V3_8() const
@@ -247,8 +280,9 @@ void VifUnpackSSE_Base::xUPK_V3_8() const
 		return;
 
 	xPMOVXX8(destReg);
+
 	if (UnpkLoopIteration != IsAligned)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xZeroLastWord(destReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V4_32() const

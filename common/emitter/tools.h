@@ -109,6 +109,8 @@ public:
 	u32 PhysicalCores = 0;
 	u32 LogicalCores = 0;
 
+	u32 SIMDLevel;
+
 public:
 	x86capabilities();
 
@@ -120,6 +122,14 @@ public:
 
 protected:
 	void CountLogicalCores();
+};
+
+enum SIMD_Level
+{
+	SIMD_Level_SSE2,
+	SIMD_Level_SSE3,
+	SIMD_Level_SSSE3,
+	SIMD_Level_SSE41
 };
 
 enum SSE_RoundMode

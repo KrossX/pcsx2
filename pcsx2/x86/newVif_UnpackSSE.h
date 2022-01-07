@@ -59,6 +59,7 @@ protected:
 	virtual void xShiftR(const xRegisterSSE& regX, int n) const;
 	virtual void xPMOVXX8(const xRegisterSSE& regX) const;
 	virtual void xPMOVXX16(const xRegisterSSE& regX) const;
+	virtual void xZeroLastWord(const xRegisterSSE& regX) const;
 
 	virtual void xUPK_S_32() const;
 	virtual void xUPK_S_16() const;
