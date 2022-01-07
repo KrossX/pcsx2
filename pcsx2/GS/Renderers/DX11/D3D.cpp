@@ -29,14 +29,14 @@ namespace D3D
 
 		// we use CreateDXGIFactory2 because we assume at least windows 8.1 anyway
 		wil::com_ptr_nothrow<IDXGIFactory2> factory;
-		HRESULT hr = CreateDXGIFactory2(flags, IID_PPV_ARGS(factory.put()));
+		HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(factory.put()));
 
 		// if we failed to create a factory with debug support
 		// try one without
 		if (FAILED(hr) && debug)
 		{
 			fprintf(stderr, "D3D: failed to create debug dxgi factory, trying without debugging\n");
-			hr = CreateDXGIFactory2(0, IID_PPV_ARGS(factory.put()));;
+			hr = CreateDXGIFactory1(IID_PPV_ARGS(factory.put()));;
 		}
 
 		if (FAILED(hr))
