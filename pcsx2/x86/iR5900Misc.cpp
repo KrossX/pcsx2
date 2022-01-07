@@ -100,7 +100,16 @@ void recMFSA()
 		// have to zero out bits 63:32
 		const int temp = _allocTempXMMreg(XMMT_INT);
 		xMOVSSZX(xRegisterSSE(temp), ptr32[&cpuRegs.sa]);
-		xBLEND.PD(xRegisterSSE(mmreg), xRegisterSSE(temp), 1);
+
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			xMOVSD(xRegisterSSE(mmreg), xRegisterSSE(temp));
+		}
+		else
+		{
+			xBLEND.PD(xRegisterSSE(mmreg), xRegisterSSE(temp), 1);
+		}
+
 		_freeXMMreg(temp);
 	}
 	else if (const int gprreg = _allocIfUsedGPRtoX86(_Rd_, MODE_WRITE); gprreg >= 0)

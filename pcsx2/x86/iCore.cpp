@@ -356,9 +356,19 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 				RALOG("Writing constant value %lld from guest reg %d to host XMM reg %d\n", g_cpuConstRegs[gprreg].SD[0], gprreg, xmmreg);
 
 				// load lower+upper, replace lower
-				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
 				xMOV64(rax, g_cpuConstRegs[gprreg].SD[0]);
-				xPINSR.Q(xRegisterSSE(xmmreg), rax, 0);
+
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+				{
+					xMOVDZX(xRegisterSSE(xmmreg), rax);
+					xMOVH.PS(xRegisterSSE(xmmreg), ptr64[&cpuRegs.GPR.r[gprreg].UD[1]]);
+				}
+				else
+				{
+					xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
+					xPINSR.Q(xRegisterSSE(xmmreg), rax, 0);
+				}
+
 				xmmregs[xmmreg].mode |= MODE_WRITE; // reg is dirty
 				g_cpuFlushedConstReg |= (1u << gprreg);
 
@@ -373,16 +383,34 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 			{
 				RALOG("Copying (for guest reg %d) host GPR %d to XMM %d\n", gprreg, hostx86reg, xmmreg);
 
-				// load lower+upper, replace lower if dirty
-				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
-
-				// if the gpr was written to (dirty), we need to invalidate it
-				if (x86regs[hostx86reg].mode & MODE_WRITE)
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
 				{
-					RALOG("Moving dirty guest reg %d from GPR %d to XMM %d\n", gprreg, hostx86reg, xmmreg);
-					xPINSR.Q(xRegisterSSE(xmmreg), xRegister64(hostx86reg), 0);
-					_freeX86regWithoutWriteback(hostx86reg);
-					xmmregs[xmmreg].mode |= MODE_WRITE;
+					if (x86regs[hostx86reg].mode & MODE_WRITE)
+					{
+						RALOG("Moving dirty guest reg %d from GPR %d to XMM %d\n", gprreg, hostx86reg, xmmreg);
+						xMOVDZX(xRegisterSSE(xmmreg), xRegister64(hostx86reg));
+						xMOVH.PS(xRegisterSSE(xmmreg), ptr64[&cpuRegs.GPR.r[gprreg].UD[1]]);
+						_freeX86regWithoutWriteback(hostx86reg);
+						xmmregs[xmmreg].mode |= MODE_WRITE;
+					}
+					else
+					{
+						xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
+					}
+				}
+				else
+				{
+					// load lower+upper, replace lower if dirty
+					xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
+
+					// if the gpr was written to (dirty), we need to invalidate it
+					if (x86regs[hostx86reg].mode & MODE_WRITE)
+					{
+						RALOG("Moving dirty guest reg %d from GPR %d to XMM %d\n", gprreg, hostx86reg, xmmreg);
+						xPINSR.Q(xRegisterSSE(xmmreg), xRegister64(hostx86reg), 0);
+						_freeX86regWithoutWriteback(hostx86reg);
+						xmmregs[xmmreg].mode |= MODE_WRITE;
+					}
 				}
 			}
 			else

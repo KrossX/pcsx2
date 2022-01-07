@@ -70,7 +70,23 @@ static void recWritebackHILO(int info, bool writed, bool upper)
 		{
 			// we use CDQE over MOVSX because it's shorter.
 			xCDQE();
-			xPINSR.Q(xRegisterSSE(xmmlo), rax, static_cast<u8>(upper));
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				int tmp = _allocTempXMMreg(XMMT_INT);
+				xMOVDZX(xRegisterSSE(tmp), rax);
+
+				if (upper)
+					xMOVLH.PS(xRegisterSSE(xmmlo), xRegisterSSE(tmp));
+				else
+					xMOVSD(xRegisterSSE(xmmlo), xRegisterSSE(tmp));
+
+				_freeXMMreg(tmp);
+			}
+			else
+			{
+				xPINSR.Q(xRegisterSSE(xmmlo), rax, static_cast<u8>(upper));
+			}
 		}
 		else
 		{
@@ -96,7 +112,23 @@ static void recWritebackHILO(int info, bool writed, bool upper)
 		if (xmmhi >= 0)
 		{
 			xMOVSX(rdx, edx);
-			xPINSR.Q(xRegisterSSE(xmmhi), rdx, static_cast<u8>(upper));
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				int tmp = _allocTempXMMreg(XMMT_INT);
+				xMOVDZX(xRegisterSSE(tmp), rdx);
+
+				if (upper)
+					xMOVLH.PS(xRegisterSSE(xmmhi), xRegisterSSE(tmp));
+				else
+					xMOVSD(xRegisterSSE(xmmhi), xRegisterSSE(tmp));
+
+				_freeXMMreg(tmp);
+			}
+			else
+			{
+				xPINSR.Q(xRegisterSSE(xmmhi), rdx, static_cast<u8>(upper));
+			}
 		}
 		else
 		{
@@ -151,7 +183,24 @@ static void recWritebackConstHILO(u64 res, bool writed, int upper)
 		if (xmmlo >= 0)
 		{
 			xMOV64(rax, loval);
-			xPINSR.Q(xRegisterSSE(xmmlo), rax, static_cast<u8>(upper));
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				int tmp = _allocTempXMMreg(XMMT_INT);
+				xMOVDZX(xRegisterSSE(tmp), rax);
+
+				if (upper)
+					xMOVLH.PS(xRegisterSSE(xmmlo), xRegisterSSE(tmp));
+				else
+					xMOVSD(xRegisterSSE(xmmlo), xRegisterSSE(tmp));
+
+				_freeXMMreg(tmp);
+			}
+			else
+			{
+				xPINSR.Q(xRegisterSSE(xmmlo), rax, static_cast<u8>(upper));
+			}
+
 		}
 		else
 		{
@@ -171,7 +220,23 @@ static void recWritebackConstHILO(u64 res, bool writed, int upper)
 		if (xmmhi >= 0)
 		{
 			xMOV64(rax, hival);
-			xPINSR.Q(xRegisterSSE(xmmhi), rax, static_cast<u8>(upper));
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				int tmp = _allocTempXMMreg(XMMT_INT);
+				xMOVDZX(xRegisterSSE(tmp), rax);
+
+				if (upper)
+					xMOVLH.PS(xRegisterSSE(xmmhi), xRegisterSSE(tmp));
+				else
+					xMOVSD(xRegisterSSE(xmmhi), xRegisterSSE(tmp));
+
+				_freeXMMreg(tmp);
+			}
+			else
+			{
+				xPINSR.Q(xRegisterSSE(xmmhi), rax, static_cast<u8>(upper));
+			}
 		}
 		else
 		{
