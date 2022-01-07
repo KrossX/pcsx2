@@ -554,8 +554,8 @@ static void recReserve()
 {
 	// Hardware Requirements Check...
 
-	if (!x86caps.hasStreamingSIMD4Extensions)
-		recThrowHardwareDeficiency("SSE4");
+	if (!x86caps.hasStreamingSIMD2Extensions)
+		recThrowHardwareDeficiency("SSE2");
 
 	recReserveCache();
 }
