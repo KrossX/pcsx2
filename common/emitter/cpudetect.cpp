@@ -318,6 +318,11 @@ void x86capabilities::Identify()
 	hasAMD64BitArchitecture = (EFlags >> 29) & 1; //64bit cpu
 	hasStreamingSIMD4ExtensionsA = (EFlags2 >> 6) & 1; //INSERTQ / EXTRQ / MOVNT
 
+	if (hasStreamingSIMD4Extensions) SIMDLevel = SIMD_Level_SSE41;
+	else if (hasSupplementalStreamingSIMD3Extensions) SIMDLevel = SIMD_Level_SSSE3;
+	else if (hasStreamingSIMD3Extensions) SIMDLevel = SIMD_Level_SSE3;
+	else SIMDLevel =  SIMD_Level_SSE2;
+
 	isIdentified = true;
 }
 
