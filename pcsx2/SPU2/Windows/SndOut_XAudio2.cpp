@@ -18,7 +18,7 @@
 #include "Dialogs.h"
 #include "common/Console.h"
 
-#include <xaudio2.h>
+#include "../3rdparty/xaudio2redist/include/xaudio2.h"
 #include <memory>
 #include <sstream>
 #include <stdexcept>
@@ -208,7 +208,7 @@ public:
 	{
 		xaudio2CoInitialize = wil::CoInitializeEx_failfast(COINIT_MULTITHREADED);
 
-		xAudio2DLL.reset(LoadLibraryEx(XAUDIO2_DLL, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32));
+		xAudio2DLL.reset(LoadLibraryA("xaudio2_9redist.dll"));
 		if (xAudio2DLL == nullptr)
 		{
 			Console.Error("Could not load %s. Error code: %d" XAUDIO2_DLL_A, GetLastError());
