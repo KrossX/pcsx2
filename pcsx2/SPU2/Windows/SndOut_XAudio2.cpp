@@ -33,12 +33,13 @@
 // the Windows 10 version. For wx, we still need to support Win8, so we
 // cheekily redefine _WIN32_WINNT before xaudio2.h is included, so that
 // it uses the older DLL.
-#ifndef PCSX2_CORE
-#undef _WIN32_WINNT
-#define _WIN32_WINNT _WIN32_WINNT_WIN8
-#endif
+//#ifndef PCSX2_CORE
+//#undef _WIN32_WINNT
+//#define _WIN32_WINNT _WIN32_WINNT_WIN8
+//#endif
 
-#include <xaudio2.h>
+//#include <xaudio2.h>
+#include "../3rdparty/xaudio2redist/include/xaudio2.h"
 
 //#define XAUDIO2_DEBUG
 
@@ -220,7 +221,7 @@ public:
 	{
 		xaudio2CoInitialize = wil::CoInitializeEx_failfast(COINIT_MULTITHREADED);
 
-		xAudio2DLL.reset(LoadLibraryEx(XAUDIO2_DLL, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32));
+		xAudio2DLL.reset(LoadLibraryA("xaudio2_9redist.dll"));
 		if (xAudio2DLL == nullptr)
 		{
 			Console.Error("Could not load %s. Error code: %d" XAUDIO2_DLL_A, GetLastError());
