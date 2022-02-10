@@ -43,6 +43,16 @@ static ProcessorFeatures::VectorISA getCurrentISA()
 			fprintf(stderr, "Vector ISA Override: SSE4\n");
 			return ProcessorFeatures::VectorISA::SSE4;
 		}
+		if (strcasecmp(over, "ssse3") == 0)
+		{
+			fprintf(stderr, "Vector ISA Override: SSSE3\n");
+			return ProcessorFeatures::VectorISA::SSSE3;
+		}
+		if (strcasecmp(over, "ssse2") == 0)
+		{
+			fprintf(stderr, "Vector ISA Override: SSE2\n");
+			return ProcessorFeatures::VectorISA::SSE2;
+		}
 	}
 	if (s_cpu.has(Xbyak::util::Cpu::tAVX2) && s_cpu.has(Xbyak::util::Cpu::tBMI1) && s_cpu.has(Xbyak::util::Cpu::tBMI2))
 		return ProcessorFeatures::VectorISA::AVX2;
@@ -50,6 +60,10 @@ static ProcessorFeatures::VectorISA getCurrentISA()
 		return ProcessorFeatures::VectorISA::AVX;
 	else if (s_cpu.has(Xbyak::util::Cpu::tSSE41))
 		return ProcessorFeatures::VectorISA::SSE4;
+	else if (s_cpu.has(Xbyak::util::Cpu::tSSSE3))
+		return ProcessorFeatures::VectorISA::SSSE3;
+	else if (s_cpu.has(Xbyak::util::Cpu::tSSE2))
+		return ProcessorFeatures::VectorISA::SSE2;
 	else
 		return ProcessorFeatures::VectorISA::None;
 }
