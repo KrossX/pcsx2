@@ -155,7 +155,7 @@ bool GSUtil::CheckSSE()
 	};
 
 	ISA checks[] = {
-		{ProcessorFeatures::VectorISA::SSE4, "SSE 4.1"},
+		{ProcessorFeatures::VectorISA::SSE2, "SSE2"},
 #if _M_SSE >= 0x500
 		{ProcessorFeatures::VectorISA::AVX, "AVX"},
 #endif

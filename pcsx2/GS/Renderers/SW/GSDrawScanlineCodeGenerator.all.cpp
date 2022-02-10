@@ -17,6 +17,7 @@
 #include "GSDrawScanlineCodeGenerator.all.h"
 #include "GS/Renderers/Common/GSFunctionMap.h"
 #include "GSVertexSW.h"
+#include "common/emitter/tools.h"
 
 MULTI_ISA_UNSHARED_IMPL;
 using namespace Xbyak;
@@ -192,7 +193,7 @@ void GSDrawScanlineCodeGenerator2::broadcastGPRToVec(const XYm& vec, const Xbyak
 
 void GSDrawScanlineCodeGenerator2::modulate16(const XYm& a, const Operand& f, u8 shift)
 {
-	if (shift == 0)
+	if (shift == 0 && x86caps.SIMDLevel >= SIMD_Level_SSSE3)
 	{
 		pmulhrsw(a, f);
 	}
@@ -220,15 +221,35 @@ void GSDrawScanlineCodeGenerator2::lerp16_4(const XYm& a, const XYm& b, const XY
 
 void GSDrawScanlineCodeGenerator2::mix16(const XYm& a, const XYm& b, const XYm& temp)
 {
-	pblendw(a, b, 0xaa);
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		pcmpeqd(temp, temp);
+		psrld(temp, 16);
+		pand(a, temp);
+		pandn(temp, b);
+		por(a, temp);
+	}
+	else
+	{
+		pblendw(a, b, 0xaa);
+	}
 }
 
 void GSDrawScanlineCodeGenerator2::clamp16(const XYm& a, const XYm& temp)
 {
 	if (isXmm)
 	{
-		packuswb(a, a);
-		pmovzxbw(a, a);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			packuswb(a, a);
+			pxor(temp, temp);
+			punpcklbw(a, temp);
+		}
+		else
+		{
+			packuswb(a, a);
+			pmovzxbw(a, a);
+		}
 	}
 	else
 	{
@@ -270,7 +291,14 @@ void GSDrawScanlineCodeGenerator2::blendr(const XYm& b, const XYm& a, const XYm&
 
 void GSDrawScanlineCodeGenerator2::blend8(const XYm& a, const XYm& b)
 {
-	pblendvb(a, b /*, xym0 */);
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		blend(a, b, xym0);
+	}
+	else
+	{
+		pblendvb(a, b /*, xym0 */);
+	}
 }
 
 void GSDrawScanlineCodeGenerator2::blend8r(const XYm& b, const XYm& a)
@@ -281,8 +309,15 @@ void GSDrawScanlineCodeGenerator2::blend8r(const XYm& b, const XYm& a)
 	}
 	else
 	{
-		pblendvb(a, b);
-		movdqa(b, a);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			blendr(b, a, xym0);
+		}
+		else
+		{
+			pblendvb(a, b);
+			movdqa(b, a);
+		}
 	}
 }
 
@@ -1111,9 +1146,24 @@ void GSDrawScanlineCodeGenerator2::TestZ(const XYm& temp1, const XYm& temp2)
 		if (m_sel.zclamp)
 		{
 			const u8 amt = (u8)((m_sel.zpsm & 0x3) * 8);
-			pcmpeqd(temp1, temp1);
-			psrld(temp1, amt);
-			pminud(xym0, temp1);
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				pcmpeqd(temp1, temp1);
+				psrld(temp1, amt);
+				pcmpgtd(temp1, xym0);
+				pand(xym0, temp1);
+				pcmpeqd(temp2, temp2);
+				pxor(temp1, temp2);
+				psrld(temp1, amt);
+				por(xym0, temp1);
+			}
+			else
+			{
+				pcmpeqd(temp1, temp1);
+				psrld(temp1, amt);
+				pminud(xym0, temp1);
+			}
 		}
 
 		if (m_sel.zwrite)
@@ -1573,8 +1623,17 @@ void GSDrawScanlineCodeGenerator2::Wrap(const XYm& uv0, const XYm& uv1)
 			// GSVector4i clamp = t.sat_i16(m_local.gd->t.min, m_local.gd->t.max);
 			pmaxsw(uv, min);
 			pminsw(uv, max);
-			// clamp.blend8(repeat, m_local.gd->t.mask);
-			pblendvb(uv, tmp /*, xym0==mask */);
+
+			if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+			{
+				broadcasti128(mask, _rip_global(t.invmask));
+				blendr(uv0, tmp, mask);
+			}
+			else
+			{
+				// clamp.blend8(repeat, m_local.gd->t.mask);
+				pblendvb(uv, tmp /*, xym0==mask */);
+			}
 		}
 	}
 }
@@ -2571,6 +2630,30 @@ void GSDrawScanlineCodeGenerator2::WriteZBuf()
 		}
 	}
 
+	// Clamp Z to ZPSM_FMT_MAX
+	if (m_sel.zclamp)
+	{
+		const u8 amt = (u8)((m_sel.zpsm & 0x3) * 8);
+
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			pcmpeqd(xym0, xym0);
+			pcmpeqd(xym7, xym7);
+			psrld(xym7, amt);
+			pcmpgtd(xym7, xym1);
+			pand(xym1, xym7);
+			pxor(xym7, xym0);
+			psrld(xym7, amt);
+			por(xym1, xym7);
+		}
+		else
+		{
+			pcmpeqd(xym7, xym7);
+			psrld(xym7, amt);
+			pminsd(xym1, xym7);
+		}
+	}
+
 	bool fast = m_sel.ztest ? m_sel.zpsm < 2 : m_sel.zpsm == 0 && m_sel.notest;
 
 #if USING_XMM
@@ -2833,6 +2916,13 @@ void GSDrawScanlineCodeGenerator2::AlphaBlend()
 
 	if (m_sel.pabe)
 	{
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			movdqa(xym0, tmp2);
+			pslld(xym0, 8);
+			psrad(xym0, 31);
+		}
+
 		psrld(xym0, 16); // zero out high words to select the source alpha in blend (so it also does mix16)
 
 		// ga = c[1].blend8(ga, mask).mix16(c[1]);
@@ -3107,13 +3197,33 @@ void GSDrawScanlineCodeGenerator2::WritePixel(const Xmm& src, const AddressReg& 
 			if (j == 0)
 				movd(dst, src);
 			else
-				pextrd(dst, src, j);
+			{
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+				{
+					pshufd(xmm0, src, _MM_SHUFFLE(j, j, j, j));
+					movd(dst, xmm0);
+				}
+				else
+				{
+					pextrd(dst, src, j);
+				}
+			}
 			break;
 		case 1:
 			if (j == 0)
 				movd(eax, src);
 			else
-				pextrd(eax, src, j);
+			{
+				if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+				{
+					pshufd(xmm0, src, _MM_SHUFFLE(j, j, j, j));
+					movd(eax, xmm0);
+				}
+				else
+				{
+					pextrd(eax, src, j);
+				}
+			}
 			xor(eax, dst);
 			and(eax, 0xffffff);
 			xor(dst, eax);
@@ -3312,12 +3422,23 @@ void GSDrawScanlineCodeGenerator2::ReadTexelImpl(const Xmm& dst, const Xmm& addr
 	AddressReg clut = _64_m_local__gd__clut;
 	AddressReg tex = texInRBX ? rbx : _64_m_local__gd__tex;
 	Address src = m_sel.tlu ? ptr[clut + rax * 4] : ptr[tex + rax * 4];
+	Address src2 = m_sel.tlu ? ptr[clut + rax * 4 + 2] : ptr[tex + rax * 4 + 2];
 
 	// Extract address offset
 	if (i == 0)
 		movd(eax, addr);
 	else
-		pextrd(eax, addr, i);
+	{
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			pshufd(addr, addr, _MM_SHUFFLE(0, 3, 2, 1));
+			movd(eax, addr);
+		}
+		else
+		{
+			pextrd(eax, addr, i);
+		}
+	}
 
 	// If clut, load the value as a byte index
 	if (m_sel.tlu)
@@ -3326,5 +3447,15 @@ void GSDrawScanlineCodeGenerator2::ReadTexelImpl(const Xmm& dst, const Xmm& addr
 	if (i == 0 && !preserveDst)
 		movd(dst, src);
 	else
-		pinsrd(dst, src, i);
+	{
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			pinsrw(dst, src, i * 2);
+			pinsrw(dst, src2, i * 2 + 1);
+		}
+		else
+		{
+			pinsrd(dst, src, i);
+		}
+	}
 }

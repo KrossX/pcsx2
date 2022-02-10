@@ -3727,8 +3727,16 @@ void GSRendererHW::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sourc
 		m_conf.ps.fog = 1;
 
 		const GSVector4 fc = GSVector4::rgba32(m_env.FOGCOL.U32[0]);
-		// Blend AREF to avoid to load a random value for alpha (dirty cache)
-		m_conf.cb_ps.FogColor_AREF = fc.blend32<8>(m_conf.cb_ps.FogColor_AREF);
+
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			m_conf.cb_ps.FogColor_AREF = fc;
+		}
+		else
+		{
+			// Blend AREF to avoid to load a random value for alpha (dirty cache)
+			m_conf.cb_ps.FogColor_AREF = fc.blend32<8>(m_conf.cb_ps.FogColor_AREF);
+		}
 	}
 
 	// Warning must be done after EmulateZbuffer

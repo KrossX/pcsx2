@@ -334,6 +334,7 @@ public:
 	AFORWARD(2, pcmpgtd,   ARGS_XO)
 	SFORWARD(3, pextrd,    const Operand&, const Xmm&, u8)
 	SFORWARD(3, pextrw,    const Operand&, const Xmm&, u8)
+	AFORWARD(3, pinsrw,    ARGS_XOI)
 	AFORWARD(3, pinsrd,    ARGS_XOI)
 	AFORWARD(2, pmaxsw,    ARGS_XO)
 	AFORWARD(2, pminsd,    ARGS_XO)

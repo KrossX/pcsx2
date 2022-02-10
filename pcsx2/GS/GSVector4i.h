@@ -198,7 +198,14 @@ public:
 
 	__forceinline GSVector4i runion_ordered(const GSVector4i& a) const
 	{
-		return min_i32(a).upl64(max_i32(a).srl<8>());
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(std::min(x, a.x), std::min(y, a.y), std::max(z, a.z), std::max(w, a.w));
+		}
+		else
+		{
+			return min_i32(a).upl64(max_i32(a).srl<8>());
+		}
 	}
 
 	__forceinline GSVector4i rintersect(const GSVector4i& a) const
@@ -276,12 +283,40 @@ public:
 
 	__forceinline GSVector4i sat_i32(const GSVector4i& a, const GSVector4i& b) const
 	{
-		return max_i32(a).min_i32(b);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			GSVector4i v;
+
+			v.x = std::min(std::max(x, a.x), b.x);
+			v.y = std::min(std::max(y, a.y), b.y);
+			v.z = std::min(std::max(z, a.z), b.z);
+			v.w = std::min(std::max(w, a.w), b.w);
+
+			return v;
+		}
+		else
+		{
+			return max_i32(a).min_i32(b);
+		}
 	}
 
 	__forceinline GSVector4i sat_i32(const GSVector4i& a) const
 	{
-		return max_i32(a.xyxy()).min_i32(a.zwzw());
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			GSVector4i v;
+
+			v.x = std::min(std::max(x, a.x), a.z);
+			v.y = std::min(std::max(y, a.y), a.w);
+			v.z = std::min(std::max(z, a.x), a.z);
+			v.w = std::min(std::max(w, a.y), a.w);
+
+			return v;
+		}
+		else
+		{
+			return max_i32(a.xyxy()).min_i32(a.zwzw());
+		}
 	}
 
 	__forceinline GSVector4i sat_u8(const GSVector4i& a, const GSVector4i& b) const
@@ -386,13 +421,36 @@ public:
 
 	__forceinline GSVector4i blend8(const GSVector4i& a, const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_blendv_epi8(m, a, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(_mm_or_si128(_mm_andnot_si128(mask, m), _mm_and_si128(mask, a)));
+		}
+		else
+		{
+			return GSVector4i(_mm_blendv_epi8(m, a, mask));
+		}
 	}
 
 	template <int mask>
 	__forceinline GSVector4i blend16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_blend_epi16(m, a, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			GSVector4i msk;
+			msk.U16[0] = ((mask & 0x01) >> 0) * 0xFF;
+			msk.U16[1] = ((mask & 0x02) >> 1) * 0xFF;
+			msk.U16[2] = ((mask & 0x04) >> 2) * 0xFF;
+			msk.U16[3] = ((mask & 0x08) >> 3) * 0xFF;
+			msk.U16[4] = ((mask & 0x10) >> 4) * 0xFF;
+			msk.U16[5] = ((mask & 0x20) >> 5) * 0xFF;
+			msk.U16[6] = ((mask & 0x40) >> 6) * 0xFF;
+			msk.U16[7] = ((mask & 0x80) >> 7) * 0xFF;
+			return blend8(a, msk);
+		}
+		else
+		{
+			return GSVector4i(_mm_blend_epi16(m, a, mask));
+		}
 	}
 
 	template <int mask>
@@ -441,12 +499,49 @@ public:
 
 	__forceinline GSVector4i mix16(const GSVector4i& a) const
 	{
-		return blend16<0xaa>(a);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return blend8(a, GSVector4i::xffff0000());
+		}
+		else
+		{
+			return blend16<0xaa>(a);
+		}
 	}
 
 	__forceinline GSVector4i shuffle8(const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_shuffle_epi8(m, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+		{
+			GSVector4i tmp(m);
+			GSVector4i msk(_mm_and_si128(mask, _mm_set1_epi8(0x0F)));
+
+			GSVector4i zero(_mm_setzero_si128());
+			GSVector4i msk2(_mm_or_si128(_mm_cmpgt_epi8(mask, zero), _mm_cmpeq_epi8(mask, zero)));
+
+			tmp.U8[ 0] = U8[msk.U8[ 0]];
+			tmp.U8[ 1] = U8[msk.U8[ 1]];
+			tmp.U8[ 2] = U8[msk.U8[ 2]];
+			tmp.U8[ 3] = U8[msk.U8[ 3]];
+			tmp.U8[ 4] = U8[msk.U8[ 4]];
+			tmp.U8[ 5] = U8[msk.U8[ 5]];
+			tmp.U8[ 6] = U8[msk.U8[ 6]];
+			tmp.U8[ 7] = U8[msk.U8[ 7]];
+			tmp.U8[ 8] = U8[msk.U8[ 8]];
+			tmp.U8[ 9] = U8[msk.U8[ 9]];
+			tmp.U8[10] = U8[msk.U8[10]];
+			tmp.U8[11] = U8[msk.U8[11]];
+			tmp.U8[12] = U8[msk.U8[12]];
+			tmp.U8[13] = U8[msk.U8[13]];
+			tmp.U8[14] = U8[msk.U8[14]];
+			tmp.U8[15] = U8[msk.U8[15]];
+
+			return GSVector4i(_mm_and_si128(tmp.m, msk2.m));
+		}
+		else
+		{
+			return GSVector4i(_mm_shuffle_epi8(m, mask));
+		}
 	}
 
 	__forceinline GSVector4i ps16(const GSVector4i& a) const
@@ -600,12 +695,26 @@ public:
 
 	__forceinline GSVector4i i8to16() const
 	{
-		return GSVector4i(_mm_cvtepi8_epi16(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return zero().upl8(*this).sra16(8);
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepi8_epi16(m));
+		}
 	}
 
 	__forceinline GSVector4i u8to16() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi16(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu8_epi16(m));
+		}
 	}
 
 	__forceinline GSVector4i i8to32() const
@@ -615,7 +724,14 @@ public:
 
 	__forceinline GSVector4i u8to32() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8().upl16();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu8_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i i8to64() const
@@ -625,17 +741,38 @@ public:
 
 	__forceinline GSVector4i u8to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8().upl16().upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi64(m));
+		}
 	}
 
 	__forceinline GSVector4i i16to32() const
 	{
-		return GSVector4i(_mm_cvtepi16_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return zero().upl16(*this).sra32(16);
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepi16_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i u16to32() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl16();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i i16to64() const
@@ -645,7 +782,14 @@ public:
 
 	__forceinline GSVector4i u16to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl16().upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi64(m));
+		}
 	}
 
 	__forceinline GSVector4i i32to64() const
@@ -655,7 +799,14 @@ public:
 
 	__forceinline GSVector4i u32to64() const
 	{
-		return GSVector4i(_mm_cvtepu32_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu32_epi64(m));
+		}
 	}
 
 	template <int i>
@@ -667,7 +818,19 @@ public:
 	template <int i>
 	__forceinline GSVector4i srl(const GSVector4i& v)
 	{
-		return GSVector4i(_mm_alignr_epi8(v.m, m, i));
+		if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+		{
+			// The `& 0xF` keeps the compiler happy on cases that won't actually be hit
+			if (i == 0) return *this;
+			else if (i < 16) return srl<i & 0xF>() | v.sll<(16 - i) & 0xF>();
+			else if (i == 16) return v;
+			else if (i < 32) return v.srl<(i - 16) & 0xF>();
+			else return zero();
+		}
+		else
+		{
+			return GSVector4i(_mm_alignr_epi8(v.m, m, i));
+		}
 	}
 
 	template <int i>
@@ -917,7 +1080,7 @@ public:
 	__forceinline GSVector4i modulate16(const GSVector4i& f) const
 	{
 		// a * f << shift
-		if (shift == 0)
+		if (x86caps.SIMDLevel > SIMD_Level_SSE3 && shift == 0)
 		{
 			return mul16hrs(f);
 		}
@@ -927,11 +1090,17 @@ public:
 
 	__forceinline bool eq(const GSVector4i& v) const
 	{
-		// pxor, ptest, je
-
-		GSVector4i t = *this ^ v;
-
-		return _mm_testz_si128(t, t) != 0;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			// pcmpeqd, pmovmskb, cmp, je
+			return eq32(v).alltrue();
+		}
+		else
+		{
+			// pxor, ptest, je
+			GSVector4i t = *this ^ v;
+			return _mm_testz_si128(t, t) != 0;
+		}
 	}
 
 	__forceinline GSVector4i eq8(const GSVector4i& v) const
@@ -1011,7 +1180,14 @@ public:
 
 	__forceinline bool allfalse() const
 	{
-		return _mm_testz_si128(m, m) != 0;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return mask() == 0;
+		}
+		else
+		{
+			return _mm_testz_si128(m, m) != 0;
+		}
 	}
 
 	template <int i>
@@ -1023,7 +1199,14 @@ public:
 	template <int i>
 	__forceinline int extract8() const
 	{
-		return _mm_extract_epi8(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return (int)U8[i];
+		}
+		else
+		{
+			return _mm_extract_epi8(m, i);
+		}
 	}
 
 	template <int i>
@@ -1050,7 +1233,14 @@ public:
 		if (i == 0)
 			return GSVector4i::store(*this);
 
-		return _mm_extract_epi32(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return I32[i];
+		}
+		else
+		{
+			return _mm_extract_epi32(m, i);
+		}
 	}
 
 #ifdef _M_AMD64
@@ -1067,7 +1257,14 @@ public:
 		if (i == 0)
 			return GSVector4i::storeq(*this);
 
-		return _mm_extract_epi64(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return I64[i];
+		}
+		else
+		{
+			return _mm_extract_epi64(m, i);
+		}
 	}
 
 #endif
@@ -1248,53 +1445,97 @@ public:
 	template <int src, class T>
 	__forceinline GSVector4i gather32_8(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract8<src + 0>()],
+				(int)ptr[extract8<src + 1>()],
+				(int)ptr[extract8<src + 2>()],
+				(int)ptr[extract8<src + 3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract8<src + 0>()]);
-		v = v.insert32<1>((int)ptr[extract8<src + 1>()]);
-		v = v.insert32<2>((int)ptr[extract8<src + 2>()]);
-		v = v.insert32<3>((int)ptr[extract8<src + 3>()]);
+			v = load((int)ptr[extract8<src + 0>()]);
+			v = v.insert32<1>((int)ptr[extract8<src + 1>()]);
+			v = v.insert32<2>((int)ptr[extract8<src + 2>()]);
+			v = v.insert32<3>((int)ptr[extract8<src + 3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <int src, class T>
 	__forceinline GSVector4i gather32_16(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract16<src + 0>()],
+				(int)ptr[extract16<src + 1>()],
+				(int)ptr[extract16<src + 2>()],
+				(int)ptr[extract16<src + 3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract16<src + 0>()]);
-		v = v.insert32<1>((int)ptr[extract16<src + 1>()]);
-		v = v.insert32<2>((int)ptr[extract16<src + 2>()]);
-		v = v.insert32<3>((int)ptr[extract16<src + 3>()]);
+			v = load((int)ptr[extract16<src + 0>()]);
+			v = v.insert32<1>((int)ptr[extract16<src + 1>()]);
+			v = v.insert32<2>((int)ptr[extract16<src + 2>()]);
+			v = v.insert32<3>((int)ptr[extract16<src + 3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <class T>
 	__forceinline GSVector4i gather32_32(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract32<0>()],
+				(int)ptr[extract32<1>()],
+				(int)ptr[extract32<2>()],
+				(int)ptr[extract32<3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract32<0>()]);
-		v = v.insert32<1>((int)ptr[extract32<1>()]);
-		v = v.insert32<2>((int)ptr[extract32<2>()]);
-		v = v.insert32<3>((int)ptr[extract32<3>()]);
+			v = load((int)ptr[extract32<0>()]);
+			v = v.insert32<1>((int)ptr[extract32<1>()]);
+			v = v.insert32<2>((int)ptr[extract32<2>()]);
+			v = v.insert32<3>((int)ptr[extract32<3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <class T1, class T2>
 	__forceinline GSVector4i gather32_32(const T1* ptr1, const T2* ptr2) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr2[ptr1[extract32<0>()]],
+				(int)ptr2[ptr1[extract32<1>()]],
+				(int)ptr2[ptr1[extract32<2>()]],
+				(int)ptr2[ptr1[extract32<3>()]]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr2[ptr1[extract32<0>()]]);
-		v = v.insert32<1>((int)ptr2[ptr1[extract32<1>()]]);
-		v = v.insert32<2>((int)ptr2[ptr1[extract32<2>()]]);
-		v = v.insert32<3>((int)ptr2[ptr1[extract32<3>()]]);
+			v = load((int)ptr2[ptr1[extract32<0>()]]);
+			v = v.insert32<1>((int)ptr2[ptr1[extract32<1>()]]);
+			v = v.insert32<2>((int)ptr2[ptr1[extract32<2>()]]);
+			v = v.insert32<3>((int)ptr2[ptr1[extract32<3>()]]);
 
-		return v;
+			return v;
+		}
 	}
 
 #if defined(_M_AMD64)
@@ -1304,8 +1545,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract8<src + 0>() & 0xf]);
-		v = v.insert64<1>((s64)ptr[extract8<src + 0>() >> 4]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = loadu(&ptr[extract8<src + 0>() & 0xf], &ptr[extract8<src + 0>() >> 4]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract8<src + 0>() & 0xf]);
+			v = v.insert64<1>((s64)ptr[extract8<src + 0>() >> 4]);
+		}
 
 		return v;
 	}
@@ -1315,8 +1563,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract8<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract8<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract8<src + 0>()], &ptr[extract8<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract8<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract8<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1326,8 +1581,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract16<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract16<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract16<src + 0>()], &ptr[extract16<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract16<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract16<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1337,8 +1599,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract32<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract32<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract32<src + 0>()], &ptr[extract32<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract32<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract32<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1348,8 +1617,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract64<0>()]);
-		v = v.insert64<1>((s64)ptr[extract64<1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract64<0>()], &ptr[extract64<1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract64<0>()]);
+			v = v.insert64<1>((s64)ptr[extract64<1>()]);
+		}
 
 		return v;
 	}
@@ -1529,7 +1805,14 @@ public:
 
 	__forceinline static GSVector4i loadnt(const void* p)
 	{
-		return GSVector4i(_mm_stream_load_si128((__m128i*)p));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(_mm_load_si128((__m128i*)p));
+		}
+		else
+		{
+			return GSVector4i(_mm_stream_load_si128((__m128i*)p));
+		}
 	}
 
 	__forceinline static GSVector4i loadl(const void* p)
