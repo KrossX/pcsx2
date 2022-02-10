@@ -17,6 +17,7 @@
 #include "GSState.h"
 #include "GSGL.h"
 #include "GSUtil.h"
+#include "common/emitter/tools.h"
 
 #include <algorithm> // clamp
 #include <cfloat> // FLT_MAX
@@ -550,10 +551,19 @@ void GSState::GIFPackedRegHandlerNull(const GIFPackedReg* RESTRICT r)
 
 void GSState::GIFPackedRegHandlerRGBA(const GIFPackedReg* RESTRICT r)
 {
-	const GSVector4i mask = GSVector4i::load(0x0c080400);
-	const GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
+	if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+	{
+		GSVector4i v = GSVector4i::load<false>(r) & GSVector4i::x000000ff();
 
-	m_v.RGBAQ.U32[0] = (u32)GSVector4i::store(v);
+		m_v.RGBAQ.U32[0] = v.rgba32();
+	}
+	else
+	{
+		const GSVector4i mask = GSVector4i::load(0x0c080400);
+		const GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
+
+		m_v.RGBAQ.U32[0] = (u32)GSVector4i::store(v);
+	}
 
 	m_v.RGBAQ.Q = m_q;
 }
@@ -2435,7 +2445,14 @@ __forceinline void GSState::VertexKick(u32 skip)
 
 	const GSVector4i xy = v1.xxxx().u16to32().sub32(m_ofxy);
 
-	GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.blend16<0xf0>(xy.sra32(4)).ps32());
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.upl64(xy.sra32(4).zwzw()).ps32());
+	}
+	else
+	{
+		GSVector4i::storel(&m_vertex.xy[xy_tail & 3], xy.blend16<0xf0>(xy.sra32(4)).ps32());
+	}
 
 	m_vertex.tail = ++tail;
 	m_vertex.xy_tail = ++xy_tail;
