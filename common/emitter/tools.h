@@ -109,7 +109,7 @@ public:
 	u32 PhysicalCores = 0;
 	u32 LogicalCores = 0;
 
-	u32 SIMDLevel;
+	u32 SIMDLevel = 7;
 
 public:
 	x86capabilities();

@@ -22,6 +22,7 @@
 #include "common/BitUtils.h"
 #include "common/Path.h"
 #include "common/StringUtil.h"
+#include "common/emitter/tools.h"
 
 #include <algorithm>
 #include <cfloat>
@@ -545,10 +546,19 @@ void GSState::GIFPackedRegHandlerNull(const GIFPackedReg* RESTRICT r)
 
 void GSState::GIFPackedRegHandlerRGBA(const GIFPackedReg* RESTRICT r)
 {
-	const GSVector4i mask = GSVector4i::load(0x0c080400);
-	const GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
+	if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+	{
+		GSVector4i v = GSVector4i::load<false>(r) & GSVector4i::x000000ff();
 
-	m_v.RGBAQ.U32[0] = (u32)GSVector4i::store(v);
+		m_v.RGBAQ.U32[0] = v.rgba32();
+	}
+	else
+	{
+		const GSVector4i mask = GSVector4i::load(0x0c080400);
+		const GSVector4i v = GSVector4i::load<false>(r).shuffle8(mask);
+
+		m_v.RGBAQ.U32[0] = (u32)GSVector4i::store(v);
+	}
 
 	m_v.RGBAQ.Q = m_q;
 }

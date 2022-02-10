@@ -38,6 +38,135 @@ class alignas(16) GSVector4i
 	{
 	}
 
+	// Helper functions from AMD's SSEPlus
+	// Copyright (c) 2006-2008 Advanced Micro Devices, Inc. All Rights Reserved.
+	// This software is subject to the Apache v2.0 License.
+
+	__forceinline __m128i ssp_logical_bitwise_select_SSE2( __m128i a, __m128i b, __m128i mask ) const
+	{                                                    // Bitwise (mask ? a : b) 
+		a = _mm_and_si128   ( a,    mask );              // clear a where mask = 0
+		b = _mm_andnot_si128( mask, b    );              // clear b where mask = 1
+		a = _mm_or_si128    ( a,    b    );              // a = a OR b
+		return a; 
+	}
+
+	__forceinline __m128i ssp_comlt_epu16_SSE2(__m128i a, __m128i b) const
+	{
+		__m128i signMask, mask;
+
+		mask     = _mm_cmplt_epi16( a, b );              // FFFF where a < b (signed)
+		signMask = _mm_xor_si128  ( a, b );              // Signbit is 1 where signs differ 
+		signMask = _mm_srai_epi16 ( signMask, 15 );      // fill all fields with sign bit     
+		mask     = _mm_xor_si128  ( mask, signMask );    // Invert output where signs differed
+		return mask;
+	}
+
+	__forceinline __m128i ssp_comgt_epu16_SSE2(__m128i a, __m128i b) const
+	{
+		__m128i signMask, mask;
+
+		mask     = _mm_cmpgt_epi16( a, b );              // FFFF where a > b (signed)
+		signMask = _mm_xor_si128  ( a, b );              // Signbit is 1 where signs differ
+		signMask = _mm_srai_epi16 ( signMask, 15 );      // fill all fields with sign bit
+		mask     = _mm_xor_si128  ( mask, signMask );    // Invert output where signs differed
+		return mask;
+	}
+
+	__forceinline __m128i ssp_comlt_epu32_SSE2(__m128i a, __m128i b) const
+	{
+		__m128i signMask, mask;
+
+		mask     = _mm_cmplt_epi32( a, b );              // FFFF where a < b (signed)
+		signMask = _mm_xor_si128  ( a, b );              // Signbit is 1 where signs differ 
+		signMask = _mm_srai_epi32 ( signMask, 31 );      // fill all fields with sign bit     
+		mask     = _mm_xor_si128  ( mask, signMask );    // Invert output where signs differed
+		return mask;
+	}
+
+	__forceinline __m128i ssp_comgt_epu32_SSE2(__m128i a, __m128i b) const
+	{
+		__m128i signMask, mask;
+
+		mask     = _mm_cmpgt_epi32( a, b );              // FFFF where a < b (signed)
+		signMask = _mm_xor_si128  ( a, b );              // Signbit is 1 where signs differ
+		signMask = _mm_srai_epi32 ( signMask, 31 );      // fill all fields with sign bit
+		mask     = _mm_xor_si128  ( mask, signMask );    // Invert output where signs differed
+		return mask;
+	}
+
+	__forceinline __m128i ssp_blendv_epi8_SSE2( __m128i a, __m128i b, __m128i mask ) const
+	{
+		__m128i mHi, mLo;
+		__m128i zero = _mm_setzero_si128 ();
+
+		mHi = _mm_unpacklo_epi8( zero, mask );
+		mHi = _mm_srai_epi16   (  mHi,   15 );
+		mHi = _mm_srli_epi16   (  mHi,    1 );
+
+		mLo = _mm_unpackhi_epi8( zero, mask );
+		mLo = _mm_srai_epi16   (  mLo,   15 );
+		mLo = _mm_srli_epi16   (  mLo,    1 );
+
+		mHi = _mm_packus_epi16  ( mHi,  mLo );
+
+		b   = _mm_and_si128     (    b, mHi  );
+		a   = _mm_andnot_si128  (  mHi,  a   );
+		a   = _mm_or_si128      (    a,  b   );
+		return a;
+	}
+
+	__forceinline __m128i ssp_blend_epi16_SSE2( __m128i a, __m128i b, const int mask ) const
+	{
+		__m128i screen;
+		//const static __m128i mulShiftImm = SSP_CONST_SET_16I( 0x0100, 0x0200, 0x0400, 0x0800, 0x1000, 0x2000, 0x4000, 0x8000 ); // Shift mask multiply moves all bits to left, becomes MSB
+		__m128i mulShiftImm = _mm_set_epi32(0x01000200, 0x04000800, 0x10002000, 0x40008000);
+
+		screen = _mm_set1_epi16  ( mask                );   // Load the mask into register
+		screen = _mm_mullo_epi16 ( screen, mulShiftImm );   // Shift bits to MSB
+		screen = _mm_srai_epi16  ( screen, 15          );   // Shift bits to obtain 0xFFFF or 0x0000
+		b      = _mm_and_si128   ( screen,  b          );   // Mask out the correct values from b
+		a      = _mm_andnot_si128( screen,  a          );   // Mask out the correct values from a (invert the mask)
+		a      = _mm_or_si128    (      a,  b          );   // Or the 2 results.
+		return a;
+	}
+
+	__forceinline __m128i ssp_comge_epi8_SSE2(__m128i a, __m128i b) const
+	{
+		__m128i c;
+		c = _mm_cmpgt_epi8( a, b );
+		a = _mm_cmpeq_epi8( a, b );
+		a = _mm_or_si128  ( a, c );
+		return a;
+	}
+
+	__forceinline __m128i ssp_shuffle_epi8_SSE2 (__m128i a, __m128i mask) const
+	{  
+		GSVector4i A(a), B;
+		GSVector4i maskZero(ssp_comge_epi8_SSE2(mask, _mm_setzero_si128()));
+		GSVector4i MASK(_mm_and_si128(mask, _mm_set1_epi8( (char)0x0F)));
+
+		B.I8[ 0] = A.I8[ (MASK.I8[ 0]) ];
+		B.I8[ 1] = A.I8[ (MASK.I8[ 1]) ];
+		B.I8[ 2] = A.I8[ (MASK.I8[ 2]) ];
+		B.I8[ 3] = A.I8[ (MASK.I8[ 3]) ];
+		B.I8[ 4] = A.I8[ (MASK.I8[ 4]) ];
+		B.I8[ 5] = A.I8[ (MASK.I8[ 5]) ];
+		B.I8[ 6] = A.I8[ (MASK.I8[ 6]) ];
+		B.I8[ 7] = A.I8[ (MASK.I8[ 7]) ];
+		B.I8[ 8] = A.I8[ (MASK.I8[ 8]) ];
+		B.I8[ 9] = A.I8[ (MASK.I8[ 9]) ];
+		B.I8[10] = A.I8[ (MASK.I8[10]) ];
+		B.I8[11] = A.I8[ (MASK.I8[11]) ];
+		B.I8[12] = A.I8[ (MASK.I8[12]) ];
+		B.I8[13] = A.I8[ (MASK.I8[13]) ];
+		B.I8[14] = A.I8[ (MASK.I8[14]) ];
+		B.I8[15] = A.I8[ (MASK.I8[15]) ];  
+
+		return _mm_and_si128(B.m, maskZero.m);
+	}
+
+	// End of SSEPlus section
+
 public:
 	union
 	{
@@ -336,12 +465,28 @@ public:
 
 	__forceinline GSVector4i min_i8(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epi8(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = _mm_cmplt_epi8(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_min_epi8(m, a));
+		}
 	}
 
 	__forceinline GSVector4i max_i8(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epi8(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = _mm_cmpgt_epi8(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_max_epi8(m, a));
+		}
 	}
 
 	__forceinline GSVector4i min_i16(const GSVector4i& a) const
@@ -356,12 +501,28 @@ public:
 
 	__forceinline GSVector4i min_i32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epi32(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = _mm_cmplt_epi32(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_min_epi32(m, a));
+		}
 	}
 
 	__forceinline GSVector4i max_i32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epi32(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = _mm_cmpgt_epi32(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_max_epi32(m, a));
+		}
 	}
 
 	__forceinline GSVector4i min_u8(const GSVector4i& a) const
@@ -376,46 +537,106 @@ public:
 
 	__forceinline GSVector4i min_u16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epu16(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = ssp_comlt_epu16_SSE2(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_min_epu16(m, a));
+		}
 	}
 
 	__forceinline GSVector4i max_u16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epu16(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = ssp_comgt_epu16_SSE2(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_max_epu16(m, a));
+		}
 	}
 
 	__forceinline GSVector4i min_u32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epu32(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = ssp_comlt_epu32_SSE2(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_min_epu32(m, a));
+		}
 	}
 
 	__forceinline GSVector4i max_u32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epu32(m, a));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i msk = ssp_comgt_epu32_SSE2(m, a);
+			return GSVector4i(ssp_logical_bitwise_select_SSE2(m, a, msk));
+		}
+		else
+		{
+			return GSVector4i(_mm_max_epu32(m, a));
+		}
 	}
 
 	__forceinline u32 minv_s32() const
 	{
-		const __m128i vmin = _mm_min_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::min<s32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return std::min(std::min(I32[0], I32[1]), std::min(I32[2], I32[3]));
+		}
+		else
+		{
+			const __m128i vmin = _mm_min_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+			return std::min<s32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		}
 	}
 
 	__forceinline u32 minv_u32() const
 	{
-		const __m128i vmin = _mm_min_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::min<u32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return std::min(std::min(U32[0], U32[1]), std::min(U32[2], U32[3]));
+		}
+		else
+		{
+			const __m128i vmin = _mm_min_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+			return std::min<u32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		}
 	}
 
 	__forceinline u32 maxv_s32() const
 	{
-		const __m128i vmax = _mm_max_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::max<s32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return std::max(std::max(I32[0], I32[1]), std::max(I32[2], I32[3]));
+		}
+		else
+		{
+			const __m128i vmax = _mm_max_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+			return std::max<s32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		}
 	}
 
 	__forceinline u32 maxv_u32() const
 	{
-		const __m128i vmax = _mm_max_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::max<u32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return std::max(std::max(U32[0], U32[1]), std::max(U32[2], U32[3]));
+		}
+		else
+		{
+			const __m128i vmax = _mm_max_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+			return std::max<u32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		}
 	}
 
 	__forceinline static int min_i16(int a, int b)
@@ -430,13 +651,27 @@ public:
 
 	__forceinline GSVector4i blend8(const GSVector4i& a, const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_blendv_epi8(m, a, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(ssp_blendv_epi8_SSE2(m, a, mask));
+		}
+		else
+		{
+			return GSVector4i(_mm_blendv_epi8(m, a, mask));
+		}
 	}
 
 	template <int mask>
 	__forceinline GSVector4i blend16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_blend_epi16(m, a, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(ssp_blend_epi16_SSE2(m, a, mask));
+		}
+		else
+		{
+			return GSVector4i(_mm_blend_epi16(m, a, mask));
+		}
 	}
 
 	template <int mask>
@@ -485,12 +720,26 @@ public:
 
 	__forceinline GSVector4i mix16(const GSVector4i& a) const
 	{
-		return blend16<0xaa>(a);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return blend8(a, GSVector4i::xffff0000());
+		}
+		else
+		{
+			return blend16<0xaa>(a);
+		}
 	}
 
 	__forceinline GSVector4i shuffle8(const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_shuffle_epi8(m, mask));
+		if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+		{
+			return GSVector4i(ssp_shuffle_epi8_SSE2(m, mask));
+		}
+		else
+		{
+			return GSVector4i(_mm_shuffle_epi8(m, mask));
+		}
 	}
 
 	__forceinline GSVector4i ps16(const GSVector4i& a) const
@@ -644,12 +893,26 @@ public:
 
 	__forceinline GSVector4i i8to16() const
 	{
-		return GSVector4i(_mm_cvtepi8_epi16(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return zero().upl8(*this).sra16(8);
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepi8_epi16(m));
+		}
 	}
 
 	__forceinline GSVector4i u8to16() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi16(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu8_epi16(m));
+		}
 	}
 
 	__forceinline GSVector4i i8to32() const
@@ -659,7 +922,14 @@ public:
 
 	__forceinline GSVector4i u8to32() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8().upl16();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu8_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i i8to64() const
@@ -669,17 +939,38 @@ public:
 
 	__forceinline GSVector4i u8to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl8().upl16().upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi64(m));
+		}
 	}
 
 	__forceinline GSVector4i i16to32() const
 	{
-		return GSVector4i(_mm_cvtepi16_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return zero().upl16(*this).sra32(16);
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepi16_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i u16to32() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi32(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl16();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi32(m));
+		}
 	}
 
 	__forceinline GSVector4i i16to64() const
@@ -689,7 +980,14 @@ public:
 
 	__forceinline GSVector4i u16to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl16().upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu16_epi64(m));
+		}
 	}
 
 	__forceinline GSVector4i i32to64() const
@@ -699,7 +997,14 @@ public:
 
 	__forceinline GSVector4i u32to64() const
 	{
-		return GSVector4i(_mm_cvtepu32_epi64(m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return upl32();
+		}
+		else
+		{
+			return GSVector4i(_mm_cvtepu32_epi64(m));
+		}
 	}
 
 	template <int i>
@@ -711,7 +1016,19 @@ public:
 	template <int i>
 	__forceinline GSVector4i srl(const GSVector4i& v)
 	{
-		return GSVector4i(_mm_alignr_epi8(v.m, m, i));
+		if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+		{
+			// The `& 0xF` keeps the compiler happy on cases that won't actually be hit
+			if (i == 0) return *this;
+			else if (i < 16) return srl<i & 0xF>() | v.sll<(16 - i) & 0xF>();
+			else if (i == 16) return v;
+			else if (i < 32) return v.srl<(i - 16) & 0xF>();
+			else return zero();
+		}
+		else
+		{
+			return GSVector4i(_mm_alignr_epi8(v.m, m, i));
+		}
 	}
 
 	template <int i>
@@ -966,7 +1283,7 @@ public:
 	__forceinline GSVector4i modulate16(const GSVector4i& f) const
 	{
 		// a * f << shift
-		if (shift == 0)
+		if (x86caps.SIMDLevel > SIMD_Level_SSE3 && shift == 0)
 		{
 			return mul16hrs(f);
 		}
@@ -976,11 +1293,17 @@ public:
 
 	__forceinline bool eq(const GSVector4i& v) const
 	{
-		// pxor, ptest, je
-
-		GSVector4i t = *this ^ v;
-
-		return _mm_testz_si128(t, t) != 0;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			// pcmpeqd, pmovmskb, cmp, je
+			return eq32(v).alltrue();
+		}
+		else
+		{
+			// pxor, ptest, je
+			GSVector4i t = *this ^ v;
+			return _mm_testz_si128(t, t) != 0;
+		}
 	}
 
 	__forceinline GSVector4i eq8(const GSVector4i& v) const
@@ -1000,7 +1323,17 @@ public:
 
 	__forceinline GSVector4i eq64(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_cmpeq_epi64(m, v.m));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			__m128i tmp1 = _mm_cmpeq_epi32(m, v.m);
+			__m128i tmp2 = _mm_slli_epi64(tmp1, 32);
+
+			return GSVector4i(_mm_shuffle_epi32(_mm_and_si128(tmp1, tmp2), 0xF5));
+		}
+		else
+		{
+			return GSVector4i(_mm_cmpeq_epi64(m, v.m));
+		}
 	}
 
 	__forceinline GSVector4i neq8(const GSVector4i& v) const
@@ -1065,7 +1398,14 @@ public:
 
 	__forceinline bool allfalse() const
 	{
-		return _mm_testz_si128(m, m) != 0;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return mask() == 0;
+		}
+		else
+		{
+			return _mm_testz_si128(m, m) != 0;
+		}
 	}
 
 	template <int i>
@@ -1077,7 +1417,14 @@ public:
 	template <int i>
 	__forceinline int extract8() const
 	{
-		return _mm_extract_epi8(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return (int)U8[i];
+		}
+		else
+		{
+			return _mm_extract_epi8(m, i);
+		}
 	}
 
 	template <int i>
@@ -1104,7 +1451,14 @@ public:
 		if (i == 0)
 			return GSVector4i::store(*this);
 
-		return _mm_extract_epi32(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return I32[i];
+		}
+		else
+		{
+			return _mm_extract_epi32(m, i);
+		}
 	}
 
 #ifdef _M_AMD64
@@ -1121,7 +1475,14 @@ public:
 		if (i == 0)
 			return GSVector4i::storeq(*this);
 
-		return _mm_extract_epi64(m, i);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return I64[i];
+		}
+		else
+		{
+			return _mm_extract_epi64(m, i);
+		}
 	}
 
 #endif
@@ -1302,53 +1663,97 @@ public:
 	template <int src, class T>
 	__forceinline GSVector4i gather32_8(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract8<src + 0>()],
+				(int)ptr[extract8<src + 1>()],
+				(int)ptr[extract8<src + 2>()],
+				(int)ptr[extract8<src + 3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract8<src + 0>()]);
-		v = v.insert32<1>((int)ptr[extract8<src + 1>()]);
-		v = v.insert32<2>((int)ptr[extract8<src + 2>()]);
-		v = v.insert32<3>((int)ptr[extract8<src + 3>()]);
+			v = load((int)ptr[extract8<src + 0>()]);
+			v = v.insert32<1>((int)ptr[extract8<src + 1>()]);
+			v = v.insert32<2>((int)ptr[extract8<src + 2>()]);
+			v = v.insert32<3>((int)ptr[extract8<src + 3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <int src, class T>
 	__forceinline GSVector4i gather32_16(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract16<src + 0>()],
+				(int)ptr[extract16<src + 1>()],
+				(int)ptr[extract16<src + 2>()],
+				(int)ptr[extract16<src + 3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract16<src + 0>()]);
-		v = v.insert32<1>((int)ptr[extract16<src + 1>()]);
-		v = v.insert32<2>((int)ptr[extract16<src + 2>()]);
-		v = v.insert32<3>((int)ptr[extract16<src + 3>()]);
+			v = load((int)ptr[extract16<src + 0>()]);
+			v = v.insert32<1>((int)ptr[extract16<src + 1>()]);
+			v = v.insert32<2>((int)ptr[extract16<src + 2>()]);
+			v = v.insert32<3>((int)ptr[extract16<src + 3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <class T>
 	__forceinline GSVector4i gather32_32(const T* ptr) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr[extract32<0>()],
+				(int)ptr[extract32<1>()],
+				(int)ptr[extract32<2>()],
+				(int)ptr[extract32<3>()]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr[extract32<0>()]);
-		v = v.insert32<1>((int)ptr[extract32<1>()]);
-		v = v.insert32<2>((int)ptr[extract32<2>()]);
-		v = v.insert32<3>((int)ptr[extract32<3>()]);
+			v = load((int)ptr[extract32<0>()]);
+			v = v.insert32<1>((int)ptr[extract32<1>()]);
+			v = v.insert32<2>((int)ptr[extract32<2>()]);
+			v = v.insert32<3>((int)ptr[extract32<3>()]);
 
-		return v;
+			return v;
+		}
 	}
 
 	template <class T1, class T2>
 	__forceinline GSVector4i gather32_32(const T1* ptr1, const T2* ptr2) const
 	{
-		GSVector4i v;
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(
+				(int)ptr2[ptr1[extract32<0>()]],
+				(int)ptr2[ptr1[extract32<1>()]],
+				(int)ptr2[ptr1[extract32<2>()]],
+				(int)ptr2[ptr1[extract32<3>()]]);
+		}
+		else
+		{
+			GSVector4i v;
 
-		v = load((int)ptr2[ptr1[extract32<0>()]]);
-		v = v.insert32<1>((int)ptr2[ptr1[extract32<1>()]]);
-		v = v.insert32<2>((int)ptr2[ptr1[extract32<2>()]]);
-		v = v.insert32<3>((int)ptr2[ptr1[extract32<3>()]]);
+			v = load((int)ptr2[ptr1[extract32<0>()]]);
+			v = v.insert32<1>((int)ptr2[ptr1[extract32<1>()]]);
+			v = v.insert32<2>((int)ptr2[ptr1[extract32<2>()]]);
+			v = v.insert32<3>((int)ptr2[ptr1[extract32<3>()]]);
 
-		return v;
+			return v;
+		}
 	}
 
 #if defined(_M_AMD64)
@@ -1358,8 +1763,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract8<src + 0>() & 0xf]);
-		v = v.insert64<1>((s64)ptr[extract8<src + 0>() >> 4]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = loadu(&ptr[extract8<src + 0>() & 0xf], &ptr[extract8<src + 0>() >> 4]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract8<src + 0>() & 0xf]);
+			v = v.insert64<1>((s64)ptr[extract8<src + 0>() >> 4]);
+		}
 
 		return v;
 	}
@@ -1369,8 +1781,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract8<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract8<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract8<src + 0>()], &ptr[extract8<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract8<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract8<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1380,8 +1799,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract16<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract16<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract16<src + 0>()], &ptr[extract16<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract16<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract16<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1391,8 +1817,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract32<src + 0>()]);
-		v = v.insert64<1>((s64)ptr[extract32<src + 1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract32<src + 0>()], &ptr[extract32<src + 1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract32<src + 0>()]);
+			v = v.insert64<1>((s64)ptr[extract32<src + 1>()]);
+		}
 
 		return v;
 	}
@@ -1402,8 +1835,15 @@ public:
 	{
 		GSVector4i v;
 
-		v = loadq((s64)ptr[extract64<0>()]);
-		v = v.insert64<1>((s64)ptr[extract64<1>()]);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			v = load(&ptr[extract64<0>()], &ptr[extract64<1>()]);
+		}
+		else
+		{
+			v = loadq((s64)ptr[extract64<0>()]);
+			v = v.insert64<1>((s64)ptr[extract64<1>()]);
+		}
 
 		return v;
 	}
@@ -1583,7 +2023,14 @@ public:
 
 	__forceinline static GSVector4i loadnt(const void* p)
 	{
-		return GSVector4i(_mm_stream_load_si128((__m128i*)p));
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			return GSVector4i(_mm_load_si128((__m128i*)p));
+		}
+		else
+		{
+			return GSVector4i(_mm_stream_load_si128((__m128i*)p));
+		}
 	}
 
 	__forceinline static GSVector4i loadl(const void* p)
