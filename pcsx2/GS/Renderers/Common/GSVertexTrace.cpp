@@ -17,6 +17,7 @@
 #include "GSVertexTrace.h"
 #include "GS/GSUtil.h"
 #include "GS/GSState.h"
+#include "common/emitter/tools.h"
 #include <cfloat>
 
 CONSTINIT const GSVector4 GSVertexTrace::s_minmax = GSVector4::cxpr(FLT_MAX, -FLT_MAX, 0.f, 0.f);
@@ -191,8 +192,10 @@ void GSVertexTrace::FindMinMax(const void* vertex, const u32* index, int count)
 	GSVector4i cmin = GSVector4i::xffffffff();
 	GSVector4i cmax = GSVector4i::zero();
 
-	GSVector4i pmin = GSVector4i::xffffffff();
-	GSVector4i pmax = GSVector4i::zero();
+	GSVector4 pminf = s_minmax.xxxx();
+	GSVector4 pmaxf = s_minmax.yyyy();
+	GSVector4i pmini = GSVector4i::xffffffff();
+	GSVector4i pmaxi = GSVector4i::zero();
 
 	const GSVertex* RESTRICT v = (GSVertex*)vertex;
 
@@ -265,11 +268,22 @@ void GSVertexTrace::FindMinMax(const void* vertex, const u32* index, int count)
 		GSVector4i xy1 = xyzf1.upl16();
 		GSVector4i zf1 = xyzf1.ywyw();
 
-		GSVector4i p0 = xy0.blend32<0xc>(primclass == GS_SPRITE_CLASS ? zf1 : zf0);
-		GSVector4i p1 = xy1.blend32<0xc>(zf1);
+		if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+		{
+			GSVector4 p0 = GSVector4(xy0.upl64(primclass == GS_SPRITE_CLASS ? zf1 : zf0));
+			GSVector4 p1 = GSVector4(xy1.upl64(zf1));
 
-		pmin = pmin.min_u32(p0.min_u32(p1));
-		pmax = pmax.max_u32(p0.max_u32(p1));
+			pminf = pminf.min(p0.min(p1));
+			pmaxf = pmaxf.max(p0.max(p1));
+		}
+		else
+		{
+			GSVector4i p0 = xy0.blend32<0xc>(primclass == GS_SPRITE_CLASS ? zf1 : zf0);
+			GSVector4i p1 = xy1.blend32<0xc>(zf1);
+
+			pmini = pmini.min_u32(p0.min_u32(p1));
+			pmaxi = pmaxi.max_u32(p0.max_u32(p1));
+		}
 	};
 
 	if (n == 2)
@@ -328,12 +342,20 @@ void GSVertexTrace::FindMinMax(const void* vertex, const u32* index, int count)
 	GSVector4 o(context->XYOFFSET);
 	GSVector4 s(1.0f / 16, 1.0f / 16, 2.0f, 1.0f);
 
-	m_min.p = (GSVector4(pmin) - o) * s;
-	m_max.p = (GSVector4(pmax) - o) * s;
+	if (x86caps.SIMDLevel < SIMD_Level_SSE41)
+	{
+		m_min.p = (pminf - o) * s;
+		m_max.p = (pmaxf - o) * s;
+	}
+	else
+	{
+		m_min.p = (GSVector4(pmini) - o) * s;
+		m_max.p = (GSVector4(pmaxi) - o) * s;
 
-	// Fix signed int conversion
-	m_min.p = m_min.p.insert32<0, 2>(GSVector4::load((float)(u32)pmin.extract32<2>()));
-	m_max.p = m_max.p.insert32<0, 2>(GSVector4::load((float)(u32)pmax.extract32<2>()));
+		// Fix signed int conversion
+		m_min.p = m_min.p.insert32<0, 2>(GSVector4::load((float)(u32)pmini.extract32<2>()));
+		m_max.p = m_max.p.insert32<0, 2>(GSVector4::load((float)(u32)pmaxi.extract32<2>()));
+	}
 
 	if (tme)
 	{
