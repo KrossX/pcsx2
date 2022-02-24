@@ -15,6 +15,7 @@
 
 #include "PrecompiledHeader.h"
 #include "GSRendererHW.h"
+#include "GSTextureReplacements.h"
 #include "GS/GSGL.h"
 #include "Host.h"
 
@@ -74,6 +75,7 @@ GSRendererHW::GSRendererHW()
 	}
 
 	m_dump_root = root_hw;
+	GSTextureReplacements::Initialize(m_tc);
 }
 
 void GSRendererHW::SetScaling()
@@ -189,6 +191,7 @@ GSRendererHW::~GSRendererHW()
 void GSRendererHW::Destroy()
 {
 	m_tc->RemoveAll();
+	GSTextureReplacements::Shutdown();
 	GSRenderer::Destroy();
 }
 
@@ -260,6 +263,8 @@ void GSRendererHW::SetGameCRC(u32 crc, int options)
 				break;
 		}
 	}
+
+	GSTextureReplacements::GameChanged();
 }
 
 bool GSRendererHW::CanUpscale()
@@ -269,8 +274,7 @@ bool GSRendererHW::CanUpscale()
 		return false;
 	}
 
-	 // upscale ratio depends on the display size, with no output it may not be set correctly (ps2 logo to game transition)
-	return GSConfig.UpscaleMultiplier != 1 && m_regs->PMODE.EN != 0;
+	return GSConfig.UpscaleMultiplier != 1;
 }
 
 int GSRendererHW::GetUpscaleMultiplier()
@@ -306,6 +310,9 @@ void GSRendererHW::VSync(u32 field, bool registers_written)
 
 		m_reset = false;
 	}
+
+	if (GSConfig.LoadTextureReplacements)
+		GSTextureReplacements::ProcessAsyncLoadedTextures();
 
 	//Check if the frame buffer width or display width has changed
 	SetScaling();
@@ -1253,6 +1260,12 @@ void GSRendererHW::Draw()
 	GSDrawingContext* context = m_context;
 	const GSLocalMemory::psm_t& tex_psm = GSLocalMemory::m_psm[m_context->TEX0.PSM];
 
+	if (!context->FRAME.FBW)
+	{
+		GL_CACHE("Skipping draw with FRAME.FBW = 0.");
+		return;
+	}
+
 	// Fix TEX0 size
 	if (PRIM->TME && !IsMipMapActive())
 		m_context->ComputeFixedTEX0(m_vt.m_min.t.xyxy(m_vt.m_max.t));
@@ -1290,6 +1303,12 @@ void GSRendererHW::Draw()
 			// Depth will be written through the RT
 			(context->FRAME.FBP == context->ZBUF.ZBP && !PRIM->TME && zm == 0 && fm == 0 && context->TEST.ZTE)
 			);
+
+	if (no_rt && no_ds)
+	{
+		GL_CACHE("Skipping draw with no color nor depth output.");
+		return;
+	}
 
 	const bool draw_sprite_tex = PRIM->TME && (m_vt.m_primclass == GS_SPRITE_CLASS);
 	const GSVector4 delta_p = m_vt.m_max.p - m_vt.m_min.p;
