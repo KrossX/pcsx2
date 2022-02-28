@@ -24,13 +24,12 @@
 #include <atomic>
 #include <condition_variable>
 #include <chrono>
-#include "ghc/filesystem.h"
 
 class HddCreate
 {
 public:
-	ghc::filesystem::path filePath;
-	int neededSize;
+	fs::path filePath;
+	u64 neededSize;
 
 	std::atomic_bool errored{false};
 
@@ -56,5 +55,5 @@ public:
 private:
 	void SetFileProgress(int currentSize);
 	void SetError();
-	void WriteImage(ghc::filesystem::path hddPath, int reqSizeMB);
+	void WriteImage(fs::path hddPath, u64 reqSizeBytes);
 };

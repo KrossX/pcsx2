@@ -43,6 +43,10 @@
 #endif
 #endif	// __WXGTK__
 
+#ifdef SDL_BUILD
+#include <SDL.h>
+#endif
+
 using namespace pxSizerFlags;
 
 void Pcsx2App::DetectCpuAndUserMode()
@@ -463,6 +467,8 @@ bool Pcsx2App::OnInit()
 			{
 				g_Conf->Folders.RunELF = elfFile.GetPath();
 				sApp.SysExecute(Startup.CdvdSource, Startup.ElfFile);
+				if (Startup.ElfFile.Find(' ') == NULL)
+					EmuConfig.CurrentGameArgs = StringUtil::wxStringToUTF8String(Startup.GameLaunchArgs);
 			}
 		}
 		else if (Startup.SysAutoRunIrx)
@@ -473,6 +479,8 @@ bool Pcsx2App::OnInit()
 
 			// FIXME: ElfFile is an irx it will crash
 			sApp.SysExecute(Startup.CdvdSource, Startup.ElfFile);
+			if (Startup.ElfFile.Find(' ') == NULL)
+				EmuConfig.CurrentGameArgs = StringUtil::wxStringToUTF8String(Startup.GameLaunchArgs);
 		}
 	}
 	// ----------------------------------------------------------------------------
@@ -501,6 +509,12 @@ bool Pcsx2App::OnInit()
 		CleanupOnExit();
 		return false;
 	}
+
+#ifdef SDL_BUILD
+	// MacOS Game Controller framework requires a few runs of the main event loop after interest in game controllers is first indicated to connect controllers
+	// Since OnePad doesn't currently handle connection/disconnection events and requires controllers to be connected on start, we need to initialize SDL before OnePad looks at the controller list
+	SDL_Init(SDL_INIT_GAMECONTROLLER);
+#endif
 	return true;
 }
 

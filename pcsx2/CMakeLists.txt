@@ -376,6 +376,7 @@ set(pcsx2DEV9Headers
 	DEV9/ATA/ATA.h
 	DEV9/ATA/HddCreate.h
 	DEV9/DEV9.h
+	DEV9/DEV9Config.h
 	DEV9/InternalServers/DHCP_Server.cpp
 	DEV9/InternalServers/DNS_Logger.h
 	DEV9/InternalServers/DNS_Server.h
@@ -783,9 +784,6 @@ if(PCSX2_CORE)
 		list(APPEND pcsx2SPU2Headers
 			SPU2/WavFile.cpp
 		)
-		list(APPEND pcsx2DEV9Sources
-			DEV9/Linux/Config.cpp
-		)
 	endif()
 elseif(WIN32)
 	list(APPEND pcsx2SPU2Sources
@@ -806,7 +804,6 @@ elseif(WIN32)
 	)
 
 	list(APPEND pcsx2DEV9Sources
-		DEV9/Win32/DEV9WinConfig.cpp
 		DEV9/Win32/pcap_io_win32.cpp
 		DEV9/Win32/tap-win32.cpp
 	)
@@ -875,10 +872,6 @@ else()
 		SPU2/Linux/Config.h
 		SPU2/Linux/Dialogs.h
 		SPU2/wx/wxConfig.h
-	)
-
-	list(APPEND pcsx2DEV9Sources
-		DEV9/Linux/Config.cpp
 	)
 
 	list(APPEND pcsx2USBSources
@@ -1569,7 +1562,6 @@ if(WIN32)
 elseif(APPLE)
 	target_link_libraries(PCSX2_FLAGS INTERFACE
 		PCAP::PCAP
-		LibXml2::LibXml2
 	)
 else()
 	if (NOT PCSX2_CORE)
@@ -1581,7 +1573,6 @@ else()
 	target_link_libraries(PCSX2_FLAGS INTERFACE
 		OpenGL::GL
 		PCAP::PCAP
-		LibXml2::LibXml2
 	)
 endif()
 

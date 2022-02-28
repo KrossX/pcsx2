@@ -26,25 +26,25 @@ ATA::ATA()
 	ResetEnd(true);
 }
 
-int ATA::Open(ghc::filesystem::path hddPath)
+int ATA::Open(fs::path hddPath)
 {
 	readBufferLen = 256 * 512;
 	readBuffer = new u8[readBufferLen];
 
-	CreateHDDinfo(config.HddSize);
+	CreateHDDinfo(EmuConfig.DEV9.HddSizeSectors);
 
 	//Open File
-	if (!ghc::filesystem::exists(hddPath))
+	if (!fs::exists(hddPath))
 	{
 		HddCreate hddCreator;
 		hddCreator.filePath = hddPath;
-		hddCreator.neededSize = config.HddSize;
+		hddCreator.neededSize = ((u64)EmuConfig.DEV9.HddSizeSectors) * 512;
 		hddCreator.Start();
 
 		if (hddCreator.errored)
 			return -1;
 	}
-	hddImage = ghc::filesystem::fstream(hddPath, std::ios::in | std::ios::out | std::ios::binary);
+	hddImage = fs::fstream(hddPath, std::ios::in | std::ios::out | std::ios::binary);
 
 	//Store HddImage size for later check
 	hddImage.seekg(0, std::ios::end);
@@ -396,7 +396,7 @@ bool ATA::HDD_CanAccess(int* sectors)
 	s64 posEnd;
 	s64 maxLBA;
 
-	maxLBA = std::min<s64>((s64)config.HddSize * 1024 * 1024 / 512, hddImageSize);
+	maxLBA = std::min<s64>(EmuConfig.DEV9.HddSizeSectors, hddImageSize / 512) - 1;
 	if ((regSelect & 0x40) == 0) //CHS mode
 		maxLBA = std::min<s64>(maxLBA, curCylinders * curHeads * curSectors);
 
