@@ -21,6 +21,7 @@
 #include "R5900Exceptions.h"
 #include "R5900OpcodeTables.h"
 #include "iR5900.h"
+#include "iR5900Analysis.h"
 #include "BaseblockEx.h"
 #include "System/RecTypes.h"
 
@@ -60,7 +61,7 @@ alignas(16) static u32 hwLUT[_64kb];
 static __fi u32 HWADDR(u32 mem) { return hwLUT[mem >> 16] + mem; }
 
 u32 s_nBlockCycles = 0; // cycles of current block recompiling
-
+bool s_nBlockInterlocked = false; // Block is VU0 interlocked
 u32 pc;       // recompiler pc
 int g_branch; // set for branch
 
@@ -1926,6 +1927,7 @@ static void __fastcall recRecompile(const u32 startpc)
 
 	// reset recomp state variables
 	s_nBlockCycles = 0;
+	s_nBlockInterlocked = false;
 	pc = startpc;
 	g_cpuHasConstReg = g_cpuFlushedConstReg = 1;
 	pxAssert(g_cpuConstRegs[0].UD[0] == 0);
@@ -2171,6 +2173,7 @@ StartRecomp:
 	}
 
 	// rec info //
+	bool has_cop2_instructions = false;
 	{
 		EEINST* pcur;
 
@@ -2191,7 +2194,16 @@ StartRecomp:
 			cpuRegs.code = *(int*)PSM(i - 4);
 			pcur[-1] = pcur[0];
 			pcur--;
+
+			has_cop2_instructions |= (_Opcode_ == 022);
 		}
+	}
+
+	// eventually we'll want to have a vector of passes or something.
+	if (has_cop2_instructions && EmuConfig.Speedhacks.vuFlagHack)
+	{
+		COP2FlagHackPass fhpass;
+		fhpass.Run(startpc, s_nEndBlock, s_pInstCache + 1);
 	}
 
 	// analyze instructions //
