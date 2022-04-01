@@ -32,8 +32,19 @@ HostDisplay::~HostDisplay() = default;
 
 const char* HostDisplay::RenderAPIToString(RenderAPI api)
 {
-	static const char* names[] = {"None", "D3D11", "Vulkan", "OpenGL", "OpenGLES"};
-	return (static_cast<u32>(api) >= std::size(names)) ? names[0] : names[static_cast<u32>(api)];
+	switch (api)
+	{
+#define CASE(x) case RenderAPI::x: return #x
+		CASE(None);
+		CASE(D3D11);
+		CASE(Metal);
+		CASE(Vulkan);
+		CASE(OpenGL);
+		CASE(OpenGLES);
+#undef CASE
+		default:
+			return "Unknown";
+	}
 }
 
 bool HostDisplay::UsesLowerLeftOrigin() const
@@ -122,6 +133,7 @@ std::string HostDisplay::GetFullscreenModeString(u32 width, u32 height, float re
 #ifdef _WIN32
 #include "Frontend/D3D11HostDisplay.h"
 #endif
+#include "GS/Renderers/Metal/GSMetalCPPAccessible.h"
 
 std::unique_ptr<HostDisplay> HostDisplay::CreateDisplayForAPI(RenderAPI api)
 {
@@ -130,6 +142,10 @@ std::unique_ptr<HostDisplay> HostDisplay::CreateDisplayForAPI(RenderAPI api)
 #ifdef _WIN32
 		case RenderAPI::D3D11:
 			return std::make_unique<D3D11HostDisplay>();
+#endif
+#ifdef __APPLE__
+		case HostDisplay::RenderAPI::Metal:
+			return std::unique_ptr<HostDisplay>(MakeMetalHostDisplay());
 #endif
 
 		case RenderAPI::OpenGL:

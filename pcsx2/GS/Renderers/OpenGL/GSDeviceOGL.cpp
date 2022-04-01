@@ -446,13 +446,6 @@ bool GSDeviceOGL::Create(HostDisplay* display)
 	{
 		GL_PUSH("GSDeviceOGL::Shadeboost");
 
-		const int ShadeBoost_Contrast = std::clamp(theApp.GetConfigI("ShadeBoost_Contrast"), 0, 100);
-		const int ShadeBoost_Brightness = std::clamp(theApp.GetConfigI("ShadeBoost_Brightness"), 0, 100);
-		const int ShadeBoost_Saturation = std::clamp(theApp.GetConfigI("ShadeBoost_Saturation"), 0, 100);
-		std::string shade_macro = format("#define SB_SATURATION %d.0\n", ShadeBoost_Saturation)
-			+ format("#define SB_BRIGHTNESS %d.0\n", ShadeBoost_Brightness)
-			+ format("#define SB_CONTRAST %d.0\n", ShadeBoost_Contrast);
-
 		const auto shader = Host::ReadResourceFileToString("shaders/opengl/shadeboost.glsl");
 		if (!shader.has_value())
 		{
@@ -460,9 +453,10 @@ bool GSDeviceOGL::Create(HostDisplay* display)
 			return false;
 		}
 
-		const std::string ps(GetShaderSource("ps_main", GL_FRAGMENT_SHADER, m_shader_common_header, *shader, shade_macro));
+		const std::string ps(GetShaderSource("ps_main", GL_FRAGMENT_SHADER, m_shader_common_header, *shader, {}));
 		if (!m_shader_cache.GetProgram(&m_shadeboost.ps, m_convert.vs, {}, ps))
 			return false;
+		m_shadeboost.ps.RegisterUniform("params");
 		m_shadeboost.ps.SetName("Shadeboost pipe");
 	}
 
@@ -937,7 +931,7 @@ void GSDeviceOGL::InitPrimDateTexture(GSTexture* rt, const GSVector4i& area)
 
 	// Create a texture to avoid the useless clean@0
 	if (m_date.t == NULL)
-		m_date.t = CreateTexture(rtsize.x, rtsize.y, false, GSTexture::Format::Int32);
+		m_date.t = CreateTexture(rtsize.x, rtsize.y, false, GSTexture::Format::PrimID);
 
 	// Clean with the max signed value
 	const int max_int = 0x7FFFFFFF;
@@ -989,6 +983,9 @@ std::string GSDeviceOGL::GenGlslHeader(const std::string_view& entry, GLenum typ
 		else if (GLAD_GL_ARM_shader_framebuffer_fetch)
 			header += "#extension GL_ARM_shader_framebuffer_fetch : require\n";
 	}
+
+	if (GLLoader::found_GL_ARB_gpu_shader5)
+		header += "#extension GL_ARB_gpu_shader5 : enable\n";
 
 	if (GLLoader::found_GL_ARB_shader_image_load_store)
 	{
@@ -1417,14 +1414,11 @@ void GSDeviceOGL::DoFXAA(GSTexture* sTex, GSTexture* dTex)
 	// Lazy compile
 	if (!m_fxaa.ps.IsValid())
 	{
-		if (!GLLoader::found_GL_ARB_gpu_shader5) // GL4.0 extension
-		{
+		// Needs ARB_gpu_shader5 for gather.
+		if (!GLLoader::found_GL_ARB_gpu_shader5)
 			return;
-		}
 
 		std::string fxaa_macro = "#define FXAA_GLSL_130 1\n";
-		fxaa_macro += "#extension GL_ARB_gpu_shader5 : enable\n";
-
 		std::optional<std::string> shader = Host::ReadResourceFileToString("shaders/common/fxaa.fx");
 		if (!shader.has_value())
 			return;
@@ -1504,9 +1498,12 @@ void GSDeviceOGL::DoExternalFX(GSTexture* sTex, GSTexture* dTex)
 #endif
 }
 
-void GSDeviceOGL::DoShadeBoost(GSTexture* sTex, GSTexture* dTex)
+void GSDeviceOGL::DoShadeBoost(GSTexture* sTex, GSTexture* dTex, const float params[4])
 {
 	GL_PUSH("DoShadeBoost");
+
+	m_shadeboost.ps.Bind();
+	m_shadeboost.ps.Uniform4fv(0, params);
 
 	OMSetColorMaskState();
 

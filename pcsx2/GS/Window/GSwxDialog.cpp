@@ -22,6 +22,7 @@
 #ifdef _WIN32
 #include "Frontend/D3D11HostDisplay.h"
 #endif
+#include "GS/Renderers/Metal/GSMetalCPPAccessible.h"
 
 #ifdef ENABLE_VULKAN
 #include "Frontend/VulkanHostDisplay.h"
@@ -454,15 +455,15 @@ PostTab::PostTab(wxWindow* parent)
 	auto not_vk_prereq = [this] { return !m_is_vk_hw; };
 
 	m_ui.addCheckBox(shader_box.inner, "Texture Filtering of Display", "linear_present", IDC_LINEAR_PRESENT);
-	m_ui.addCheckBox(shader_box.inner, "FXAA Shader (PgUp)",           "fxaa",           IDC_FXAA, not_vk_prereq);
+	m_ui.addCheckBox(shader_box.inner, "FXAA Shader (PgUp)",           "fxaa",           IDC_FXAA);
 
-	CheckboxPrereq shade_boost_check(m_ui.addCheckBox(shader_box.inner, "Enable Shade Boost", "ShadeBoost", IDC_SHADEBOOST, not_vk_prereq));
+	CheckboxPrereq shade_boost_check(m_ui.addCheckBox(shader_box.inner, "Enable Shade Boost", "ShadeBoost", IDC_SHADEBOOST));
 
 	PaddedBoxSizer<wxStaticBoxSizer> shade_boost_box(wxVERTICAL, this, "Shade Boost");
 	auto* shader_boost_grid = new wxFlexGridSizer(2, space, space);
 	shader_boost_grid->AddGrowableCol(1);
 
-	auto shader_boost_prereq = [shade_boost_check, this] { return !m_is_vk_hw && shade_boost_check.box->GetValue(); };
+	auto shader_boost_prereq = [shade_boost_check, this] { return shade_boost_check.box->GetValue(); };
 	m_ui.addSliderAndLabel(shader_boost_grid, "Brightness:", "ShadeBoost_Brightness", 0, 100, 50, -1, shader_boost_prereq);
 	m_ui.addSliderAndLabel(shader_boost_grid, "Contrast:",   "ShadeBoost_Contrast",   0, 100, 50, -1, shader_boost_prereq);
 	m_ui.addSliderAndLabel(shader_boost_grid, "Saturation:", "ShadeBoost_Saturation", 0, 100, 50, -1, shader_boost_prereq);
@@ -695,6 +696,11 @@ void Dialog::RendererChange()
 		list = VulkanHostDisplay::StaticGetAdapterAndModeList(nullptr);
 		break;
 #endif
+#ifdef __APPLE__
+	case GSRendererType::Metal:
+		list = GetMetalAdapterAndModeList();
+		break;
+#endif
 	default:
 		break;
 	}
@@ -774,7 +780,7 @@ void Dialog::Update()
 	else
 	{
 		// cross-tab dependencies yay
-		const bool is_hw = renderer == GSRendererType::OGL || renderer == GSRendererType::DX11 || renderer == GSRendererType::VK;
+		const bool is_hw = renderer == GSRendererType::OGL || renderer == GSRendererType::DX11 || renderer == GSRendererType::VK || renderer == GSRendererType::Metal;
 		const bool is_upscale = m_renderer_panel->m_internal_resolution->GetSelection() != 0;
 		m_hacks_panel->m_is_native_res = !is_hw || !is_upscale;
 		m_hacks_panel->m_is_hardware = is_hw;

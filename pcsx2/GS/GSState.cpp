@@ -135,6 +135,7 @@ GSState::GSState()
 	PRIM = &m_env.PRIM;
 	//CSR->rREV = 0x20;
 	m_env.PRMODECONT.AC = 1;
+	m_last_prim.U32[0] = PRIM->U32[0];
 
 	Reset();
 
@@ -651,6 +652,15 @@ void GSState::DumpVertices(const std::string& filename)
 	file.close();
 }
 
+__inline void GSState::CheckFlushes()
+{
+	if (m_primflush)
+		Flush();
+
+	if ((m_context->FRAME.FBMSK & GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk) != GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk)
+		m_mem.m_clut.Invalidate(m_context->FRAME.Block());
+}
+
 void GSState::GIFPackedRegHandlerNull(const GIFPackedReg* RESTRICT r)
 {
 }
@@ -717,6 +727,8 @@ void GSState::GIFPackedRegHandlerUV_Hack(const GIFPackedReg* RESTRICT r)
 template <u32 prim, u32 adc, bool auto_flush, bool index_swap>
 void GSState::GIFPackedRegHandlerXYZF2(const GIFPackedReg* RESTRICT r)
 {
+	CheckFlushes();
+
 	GSVector4i xy = GSVector4i::loadl(&r->U64[0]);
 	GSVector4i zf = GSVector4i::loadl(&r->U64[1]);
 
@@ -731,6 +743,8 @@ void GSState::GIFPackedRegHandlerXYZF2(const GIFPackedReg* RESTRICT r)
 template <u32 prim, u32 adc, bool auto_flush, bool index_swap>
 void GSState::GIFPackedRegHandlerXYZ2(const GIFPackedReg* RESTRICT r)
 {
+	CheckFlushes();
+
 	const GSVector4i xy = GSVector4i::loadl(&r->U64[0]);
 	const GSVector4i z = GSVector4i::loadl(&r->U64[1]);
 	const GSVector4i xyz = xy.upl16(xy.srl<4>()).upl32(z);
@@ -758,6 +772,8 @@ template <u32 prim, bool auto_flush, bool index_swap>
 void GSState::GIFPackedRegHandlerSTQRGBAXYZF2(const GIFPackedReg* RESTRICT r, u32 size)
 {
 	ASSERT(size > 0 && size % 3 == 0);
+
+	CheckFlushes();
 
 	const GIFPackedReg* RESTRICT r_end = r + size;
 
@@ -790,6 +806,8 @@ template <u32 prim, bool auto_flush, bool index_swap>
 void GSState::GIFPackedRegHandlerSTQRGBAXYZ2(const GIFPackedReg* RESTRICT r, u32 size)
 {
 	ASSERT(size > 0 && size % 3 == 0);
+
+	CheckFlushes();
 
 	const GIFPackedReg* RESTRICT r_end = r + size;
 
@@ -827,19 +845,6 @@ void GSState::GIFRegHandlerNull(const GIFReg* RESTRICT r)
 
 __forceinline void GSState::ApplyPRIM(u32 prim)
 {
-	if (GSUtil::GetPrimClass(m_env.PRIM.PRIM) == GSUtil::GetPrimClass(prim & 7)) // NOTE: assume strips/fans are converted to lists
-	{
-		u32 prim_mask = 0x7f8;
-		if (GSConfig.UseHardwareRenderer() && GSUtil::GetPrimClass(prim & 7) == GS_TRIANGLE_CLASS)
-			prim_mask &= ~0x80; // Mask out AA1.
-
-		if (m_env.PRMODECONT.AC == 1 && (m_env.PRIM.U32[0] ^ prim) & prim_mask) // all fields except PRIM
-			Flush();
-	}
-	else
-	{
-		Flush();
-	}
 
 	if (m_env.PRMODECONT.AC == 1)
 	{
@@ -852,12 +857,29 @@ __forceinline void GSState::ApplyPRIM(u32 prim)
 		m_env.PRIM.PRIM = prim & 0x7;
 	}
 
+	m_primflush = false;
+	u32 prim_mask = 0x7ff;
+
+	// Same class of draw so we don't need to flush
+	if (GSUtil::GetPrimClass(m_last_prim.PRIM) == GSUtil::GetPrimClass(m_env.PRIM.PRIM))
+		prim_mask &= ~0x7;
+
+	if (GSConfig.UseHardwareRenderer() && GSUtil::GetPrimClass(prim & 7) == GS_TRIANGLE_CLASS)
+		prim_mask &= ~0x80; // Mask out AA1.
+
+	if ((m_last_prim.U32[0] ^ m_env.PRIM.U32[0]) & prim_mask)
+		m_primflush = true;
+
 	UpdateVertexKick();
 
 	ASSERT(m_index.tail == 0 || !g_gs_device->Features().provoking_vertex_last || m_index.buff[m_index.tail - 1] + 1 == m_vertex.next);
 
 	if (m_index.tail == 0)
+	{
 		m_vertex.next = 0;
+		m_primflush = false;
+		m_last_prim.U32[0] = m_env.PRIM.U32[0];
+	}
 
 	m_vertex.head = m_vertex.tail = m_vertex.next; // remove unused vertices from the end of the vertex buffer
 }
@@ -908,6 +930,8 @@ void GSState::GIFRegHandlerUV_Hack(const GIFReg* RESTRICT r)
 template <u32 prim, u32 adc, bool auto_flush, bool index_swap>
 void GSState::GIFRegHandlerXYZF2(const GIFReg* RESTRICT r)
 {
+	CheckFlushes();
+
 	GSVector4i xyzf = GSVector4i::loadl(&r->XYZF);
 	GSVector4i xyz = xyzf & (GSVector4i::xffffffff().upl32(GSVector4i::x00ffffff()));
 	GSVector4i uvf = GSVector4i::load((int)m_v.UV).upl32(xyzf.srl32(24).srl<4>());
@@ -920,6 +944,8 @@ void GSState::GIFRegHandlerXYZF2(const GIFReg* RESTRICT r)
 template <u32 prim, u32 adc, bool auto_flush, bool index_swap>
 void GSState::GIFRegHandlerXYZ2(const GIFReg* RESTRICT r)
 {
+	CheckFlushes();
+
 	m_v.m[1] = GSVector4i::load(&r->XYZ, &m_v.UV);
 
 	VertexKick<prim, auto_flush, index_swap>(adc);
@@ -950,7 +976,7 @@ void GSState::ApplyTEX0(GIFRegTEX0& TEX0)
 
 	constexpr u64 mask = 0x1f78001fffffffffull; // TBP0 TBW PSM TW TH TCC TFX CPSM CSA
 
-	if (wt || PRIM->CTXT == i && ((TEX0.U64 ^ m_env.CTXT[i].TEX0.U64) & mask))
+	if (wt || (PRIM->CTXT == i || m_primflush) && ((TEX0.U64 ^ m_env.CTXT[i].TEX0.U64) & mask))
 		Flush();
 
 	TEX0.CPSM &= 0xa; // 1010b
@@ -1084,7 +1110,7 @@ void GSState::GIFRegHandlerCLAMP(const GIFReg* RESTRICT r)
 {
 	GL_REG("CLAMP_%d = 0x%x_%x", i, r->U32[1], r->U32[0]);
 
-	if (PRIM->CTXT == i && r->CLAMP != m_env.CTXT[i].CLAMP)
+	if ((PRIM->CTXT == i || m_primflush) && r->CLAMP != m_env.CTXT[i].CLAMP)
 		Flush();
 
 	m_env.CTXT[i].CLAMP = (GSVector4i)r->CLAMP;
@@ -1104,7 +1130,7 @@ void GSState::GIFRegHandlerTEX1(const GIFReg* RESTRICT r)
 {
 	GL_REG("TEX1_%d = 0x%x_%x", i, r->U32[1], r->U32[0]);
 
-	if (PRIM->CTXT == i && r->TEX1 != m_env.CTXT[i].TEX1)
+	if ((PRIM->CTXT == i || m_primflush) && r->TEX1 != m_env.CTXT[i].TEX1)
 		Flush();
 
 	m_env.CTXT[i].TEX1 = (GSVector4i)r->TEX1;
@@ -1158,23 +1184,32 @@ void GSState::GIFRegHandlerPRMODE(const GIFReg* RESTRICT r)
 {
 	GL_REG("PRMODE = 0x%x_%x", r->U32[1], r->U32[0]);
 
-	if (!m_env.PRMODECONT.AC)
-	{
-		u32 prim_mask = 0x7f8;
-		if (GSConfig.UseHardwareRenderer() && GSUtil::GetPrimClass(m_env.PRIM.PRIM) == GS_TRIANGLE_CLASS)
-			prim_mask &= ~0x80; // Mask out AA1.
-
-		if ((m_env.PRIM.U32[0] ^ r->PRMODE.U32[0]) & prim_mask)
-			Flush();
-	}
-	else
-	{
+	// We're in PRIM mode, need to ignore any writes
+	if (m_env.PRMODECONT.AC)
 		return;
-	}
 
 	const u32 _PRIM = m_env.PRIM.PRIM;
 	m_env.PRIM = (GSVector4i)r->PRMODE;
 	m_env.PRIM.PRIM = _PRIM;
+
+	u32 prim_mask = 0x7ff;
+	
+	// Same class of draw so we don't need to flush
+	if (GSUtil::GetPrimClass(m_last_prim.PRIM) == GSUtil::GetPrimClass(m_env.PRIM.PRIM))
+		prim_mask &= ~0x7;
+
+	if (GSConfig.UseHardwareRenderer() && GSUtil::GetPrimClass(m_env.PRIM.PRIM) == GS_TRIANGLE_CLASS)
+		prim_mask &= ~0x80; // Mask out AA1.
+
+	m_primflush = false;
+	if ((m_last_prim.U32[0] ^ m_env.PRIM.U32[0]) & prim_mask)
+		m_primflush = true;
+
+	if (m_index.tail == 0)
+	{
+		m_primflush = false;
+		m_last_prim.U32[0] = m_env.PRIM.U32[0];
+	}
 
 	UpdateContext();
 }
@@ -1204,7 +1239,7 @@ void GSState::GIFRegHandlerMIPTBP1(const GIFReg* RESTRICT r)
 {
 	GL_REG("MIPTBP1_%d = 0x%x_%x", i, r->U32[1], r->U32[0]);
 
-	if (PRIM->CTXT == i && r->MIPTBP1 != m_env.CTXT[i].MIPTBP1)
+	if ((PRIM->CTXT == i || m_primflush) && r->MIPTBP1 != m_env.CTXT[i].MIPTBP1)
 		Flush();
 
 	m_env.CTXT[i].MIPTBP1 = (GSVector4i)r->MIPTBP1;
@@ -1215,7 +1250,7 @@ void GSState::GIFRegHandlerMIPTBP2(const GIFReg* RESTRICT r)
 {
 	GL_REG("MIPTBP2_%d = 0x%x_%x", i, r->U32[1], r->U32[0]);
 
-	if (PRIM->CTXT == i && r->MIPTBP2 != m_env.CTXT[i].MIPTBP2)
+	if ((PRIM->CTXT == i || m_primflush) && r->MIPTBP2 != m_env.CTXT[i].MIPTBP2)
 		Flush();
 
 	m_env.CTXT[i].MIPTBP2 = (GSVector4i)r->MIPTBP2;
@@ -1254,7 +1289,7 @@ void GSState::GIFRegHandlerTEXFLUSH(const GIFReg* RESTRICT r)
 template <int i>
 void GSState::GIFRegHandlerSCISSOR(const GIFReg* RESTRICT r)
 {
-	if (PRIM->CTXT == i && r->SCISSOR != m_env.CTXT[i].SCISSOR)
+	if ((PRIM->CTXT == i || m_primflush) && r->SCISSOR != m_env.CTXT[i].SCISSOR)
 		Flush();
 
 	m_env.CTXT[i].SCISSOR = (GSVector4i)r->SCISSOR;
@@ -1268,7 +1303,7 @@ template <int i>
 void GSState::GIFRegHandlerALPHA(const GIFReg* RESTRICT r)
 {
 	GL_REG("ALPHA = 0x%x_%x", r->U32[1], r->U32[0]);
-	if (PRIM->CTXT == i && r->ALPHA != m_env.CTXT[i].ALPHA)
+	if ((PRIM->CTXT == i || m_primflush) && r->ALPHA != m_env.CTXT[i].ALPHA)
 		Flush();
 
 	m_env.CTXT[i].ALPHA = (GSVector4i)r->ALPHA;
@@ -1317,7 +1352,7 @@ void GSState::GIFRegHandlerCOLCLAMP(const GIFReg* RESTRICT r)
 template <int i>
 void GSState::GIFRegHandlerTEST(const GIFReg* RESTRICT r)
 {
-	if (PRIM->CTXT == i && r->TEST != m_env.CTXT[i].TEST)
+	if ((PRIM->CTXT == i || m_primflush) && r->TEST != m_env.CTXT[i].TEST)
 		Flush();
 
 	m_env.CTXT[i].TEST = (GSVector4i)r->TEST;
@@ -1334,7 +1369,7 @@ void GSState::GIFRegHandlerPABE(const GIFReg* RESTRICT r)
 template <int i>
 void GSState::GIFRegHandlerFBA(const GIFReg* RESTRICT r)
 {
-	if (PRIM->CTXT == i && r->FBA != m_env.CTXT[i].FBA)
+	if ((PRIM->CTXT == i || m_primflush) && r->FBA != m_env.CTXT[i].FBA)
 		Flush();
 
 	m_env.CTXT[i].FBA = (GSVector4i)r->FBA;
@@ -1350,7 +1385,7 @@ void GSState::GIFRegHandlerFRAME(const GIFReg* RESTRICT r)
 	// However there is some issues so even software mode is incorrect on PCSX2, but this works better..
 	NewFrame.FBW = std::clamp(NewFrame.FBW, 1U, 32U);
 
-	if (PRIM->CTXT == i && NewFrame != m_env.CTXT[i].FRAME)
+	if ((PRIM->CTXT == i || m_primflush) && NewFrame != m_env.CTXT[i].FRAME)
 		Flush();
 
 	if ((NewFrame.PSM & 0x30) == 0x30)
@@ -1409,7 +1444,7 @@ void GSState::GIFRegHandlerZBUF(const GIFReg* RESTRICT r)
 	else
 		ZBUF.PSM |= 0x30;
 
-	if (PRIM->CTXT == i && ZBUF != m_env.CTXT[i].ZBUF)
+	if ((PRIM->CTXT == i || m_primflush) && ZBUF != m_env.CTXT[i].ZBUF)
 		Flush();
 
 	if ((m_env.CTXT[i].ZBUF.U32[0] ^ ZBUF.U32[0]) & 0x3f0001ff) // ZBP PSM
@@ -1501,7 +1536,6 @@ void GSState::GIFRegHandlerHWREG(const GIFReg* RESTRICT r)
 void GSState::Flush()
 {
 	FlushWrite();
-
 	FlushPrim();
 }
 
@@ -1532,6 +1566,15 @@ void GSState::FlushWrite()
 
 void GSState::FlushPrim()
 {
+	const u32 new_prim = PRIM->U32[0];
+
+	if (m_primflush)
+	{
+		// We need to restore the old PRIM and update the Context (in case it changed)
+		m_env.PRIM.U32[0] = m_last_prim.U32[0];
+		UpdateContext();
+	}
+
 	if (m_index.tail > 0)
 	{
 		GL_REG("FlushPrim ctxt %d", PRIM->CTXT);
@@ -1564,10 +1607,12 @@ void GSState::FlushPrim()
 				case GS_LINELIST:
 				case GS_LINESTRIP:
 				case GS_SPRITE:
+					unused = 1;
+					buff[0] = m_vertex.buff[tail - 1];
 				case GS_TRIANGLELIST:
 				case GS_TRIANGLESTRIP:
-					unused = tail - head;
-					memcpy(buff, &m_vertex.buff[head], sizeof(GSVertex) * unused);
+					unused = std::min<size_t>(tail - head, 2);
+					memcpy(buff, &m_vertex.buff[tail - unused], sizeof(GSVertex) * 2);
 					break;
 				case GS_TRIANGLEFAN:
 					buff[0] = m_vertex.buff[head];
@@ -1636,6 +1681,16 @@ void GSState::FlushPrim()
 			m_vertex.next = 0;
 		}
 	}
+
+	if (m_primflush)
+	{
+		// Restore the backup
+		PRIM->U32[0] = new_prim;
+		UpdateContext();
+	}
+
+	m_primflush = false;
+	m_last_prim.U32[0] = new_prim;
 }
 
 void GSState::Write(const u8* mem, int len)
@@ -2739,9 +2794,6 @@ __forceinline void GSState::VertexKick(u32 skip)
 			n = 3;
 			break;
 	}
-
-	if ((m_context->FRAME.FBMSK & GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk) != GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk)
-		m_mem.m_clut.Invalidate(m_context->FRAME.Block());
 
 	if (auto_flush && m_index.tail >= n)
 		HandleAutoFlush();

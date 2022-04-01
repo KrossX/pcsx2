@@ -103,15 +103,6 @@ public:
 	ExternalFXConstantBuffer() { memset(this, 0, sizeof(*this)); }
 };
 
-class ShadeBoostConstantBuffer
-{
-public:
-	GSVector4 rcpFrame;
-	GSVector4 rcpFrameOpt;
-
-	ShadeBoostConstantBuffer() { memset(this, 0, sizeof(*this)); }
-};
-
 #pragma pack(pop)
 
 enum HWBlendFlags
@@ -602,18 +593,16 @@ public:
 			memset(this, 0, sizeof(*this));
 		}
 	};
-	// clang-format on
 
-	// clang-format off
-	enum : u8
+	enum BlendFactor : u8
 	{
 		// HW blend factors
-		SRC_COLOR, INV_SRC_COLOR, DST_COLOR, INV_DST_COLOR,
-		SRC1_COLOR, INV_SRC1_COLOR, SRC_ALPHA, INV_SRC_ALPHA,
-		DST_ALPHA, INV_DST_ALPHA, SRC1_ALPHA, INV_SRC1_ALPHA,
-		CONST_COLOR, INV_CONST_COLOR, CONST_ONE, CONST_ZERO,
+		SRC_COLOR,   INV_SRC_COLOR,   DST_COLOR,  INV_DST_COLOR,
+		SRC1_COLOR,  INV_SRC1_COLOR,  SRC_ALPHA,  INV_SRC_ALPHA,
+		DST_ALPHA,   INV_DST_ALPHA,   SRC1_ALPHA, INV_SRC1_ALPHA,
+		CONST_COLOR, INV_CONST_COLOR, CONST_ONE,  CONST_ZERO,
 	};
-	enum : u8
+	enum BlendOp : u8
 	{
 		// HW blend operations
 		OP_ADD, OP_SUBTRACT, OP_REV_SUBTRACT
@@ -652,7 +641,7 @@ protected:
 	virtual void DoMerge(GSTexture* sTex[3], GSVector4* sRect, GSTexture* dTex, GSVector4* dRect, const GSRegPMODE& PMODE, const GSRegEXTBUF& EXTBUF, const GSVector4& c) = 0;
 	virtual void DoInterlace(GSTexture* sTex, GSTexture* dTex, int shader, bool linear, float yoffset) = 0;
 	virtual void DoFXAA(GSTexture* sTex, GSTexture* dTex) {}
-	virtual void DoShadeBoost(GSTexture* sTex, GSTexture* dTex) {}
+	virtual void DoShadeBoost(GSTexture* sTex, GSTexture* dTex, const float params[4]) {}
 	virtual void DoExternalFX(GSTexture* sTex, GSTexture* dTex) {}
 
 public:
@@ -807,5 +796,8 @@ struct GSAdapter
 	// TODO
 #endif
 };
+
+template <>
+struct std::hash<GSHWDrawConfig::PSSelector> : public GSHWDrawConfig::PSSelectorHash {};
 
 extern std::unique_ptr<GSDevice> g_gs_device;
