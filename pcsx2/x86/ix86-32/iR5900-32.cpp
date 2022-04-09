@@ -40,17 +40,20 @@
 #include "DebugTools/Breakpoints.h"
 #include "Patch.h"
 
-#if !PCSX2_SEH
-	#include "common/FastJmp.h"
-#endif
-
-
+#include "common/FastJmp.h"
 #include "common/MemsetFast.inl"
 #include "common/Perf.h"
 
 
 using namespace x86Emitter;
 using namespace R5900;
+
+static std::atomic<bool> eeRecIsReset(false);
+static std::atomic<bool> eeRecNeedsReset(false);
+static bool eeCpuExecuting = false;
+static bool eeRecExitRequested = false;
+static bool g_resetEeScalingStats = false;
+static int g_patchesNeedRedo = 0;
 
 #define PC_GETBLOCK(x) PC_GETBLOCK_(x, recLUT)
 
@@ -372,9 +375,9 @@ static void recEventTest()
 {
 	_cpuEventTest_Shared();
 
-	if (iopBreakpoint)
+	if (eeRecExitRequested)
 	{
-		iopBreakpoint = false;
+		eeRecExitRequested = false;
 		recExitExecution();
 	}
 }
@@ -623,12 +626,6 @@ static void recAlloc()
 alignas(16) static u16 manual_page[Ps2MemSize::MainRam >> 12];
 alignas(16) static u8 manual_counter[Ps2MemSize::MainRam >> 12];
 
-static std::atomic<bool> eeRecIsReset(false);
-static std::atomic<bool> eeRecNeedsReset(false);
-static bool eeCpuExecuting = false;
-static bool g_resetEeScalingStats = false;
-static int g_patchesNeedRedo = 0;
-
 ////////////////////////////////////////////////////
 static void recResetRaw()
 {
@@ -638,9 +635,9 @@ static void recResetRaw()
 
 	recAlloc();
 
+	eeRecNeedsReset = false;
 	if (eeRecIsReset.exchange(true))
 		return;
-	eeRecNeedsReset = false;
 
 	Console.WriteLn(Color_StrongBlack, "EE/iR5900-32 Recompiler Reset");
 
@@ -689,7 +686,9 @@ static void recResetEE()
 {
 	if (eeCpuExecuting)
 	{
+		// get outta here as soon as we can
 		eeRecNeedsReset = true;
+		eeRecExitRequested = true;
 		return;
 	}
 
@@ -700,71 +699,48 @@ void recStep()
 {
 }
 
-#if !PCSX2_SEH
-	#define SETJMP_CODE(x) x
-	static fastjmp_buf m_SetJmp_StateCheck;
-	static std::unique_ptr<BaseR5900Exception> m_cpuException;
-	static ScopedExcept m_Exception;
-#else
-	#define SETJMP_CODE(x)
-#endif
-
+static fastjmp_buf m_SetJmp_StateCheck;
+static std::unique_ptr<BaseR5900Exception> m_cpuException;
+static ScopedExcept m_Exception;
 
 static void recExitExecution()
 {
-#if PCSX2_SEH
-	throw Exception::ExitCpuExecute();
-#else
 	// Without SEH we'll need to hop to a safehouse point outside the scope of recompiled
 	// code.  C++ exceptions can't cross the mighty chasm in the stackframe that the recompiler
 	// creates.  However, the longjump is slow so we only want to do one when absolutely
 	// necessary:
 
 	fastjmp_jmp(&m_SetJmp_StateCheck, 1);
-#endif
 }
 
-static void recCheckExecutionState()
+static void recSafeExitExecution()
 {
-#ifndef PCSX2_CORE
-	if (SETJMP_CODE(m_cpuException || m_Exception ||) eeRecIsReset || GetCoreThread().HasPendingStateChangeRequest())
-#else
-	if (SETJMP_CODE(m_cpuException || m_Exception ||) eeRecIsReset || VMManager::Internal::IsExecutionInterrupted())
-#endif
-	{
+	// If we're currently processing events, we can't safely jump out of the recompiler here, because we'll
+	// leave things in an inconsistent state. So instead, we flag it for exiting once cpuEventTest() returns.
+	if (eeEventTestIsActive)
+		eeRecExitRequested = true;
+	else
 		recExitExecution();
-	}
 }
 
 static void recExecute()
 {
-	// Implementation Notes:
-	// [TODO] fix this comment to explain various code entry/exit points, when I'm not so tired!
-
-#if PCSX2_SEH
-	eeRecIsReset = false;
-	ScopedBool executing(eeCpuExecuting);
-
-	try
-	{
-		EnterRecompiledCode();
-	}
-	catch (Exception::ExitCpuExecute&)
-	{
-	}
-
-#else
+	// Reset before we try to execute any code, if there's one pending.
+	// We need to do this here, because if we reset while we're executing, it sets the "needs reset"
+	// flag, which triggers a JIT exit (the fastjmp_set below), and eventually loops back here.
+	eeRecIsReset.store(false);
+	if (eeRecNeedsReset.load())
+		recResetRaw();
 
 	int oldstate;
-	m_cpuException = NULL;
-	m_Exception    = NULL;
+	m_cpuException = nullptr;
+	m_Exception    = nullptr;
 
 	// setjmp will save the register context and will return 0
 	// A call to longjmp will restore the context (included the eip/rip)
 	// but will return the longjmp 2nd parameter (here 1)
 	if (!fastjmp_set(&m_SetJmp_StateCheck))
 	{
-		eeRecIsReset = false;
 		eeCpuExecuting = true;
 
 		// Important! Most of the console logging and such has cancel points in it.  This is great
@@ -791,7 +767,6 @@ static void recExecute()
 
 	// FIXME Warning thread unsafe
 	Perf::dump();
-#endif
 
 	EE::Profiler.Print();
 }
@@ -2386,26 +2361,18 @@ StartRecomp:
 // SEH unwind (MSW) or setjmp/longjmp (GCC).
 static void recThrowException(const BaseR5900Exception& ex)
 {
-#if PCSX2_SEH
-	ex.Rethrow();
-#else
 	if (!eeCpuExecuting)
 		ex.Rethrow();
 	m_cpuException = std::unique_ptr<BaseR5900Exception>(ex.Clone());
 	recExitExecution();
-#endif
 }
 
 static void recThrowException(const BaseException& ex)
 {
-#if PCSX2_SEH
-	ex.Rethrow();
-#else
 	if (!eeCpuExecuting)
 		ex.Rethrow();
 	m_Exception = ScopedExcept(ex.Clone());
 	recExitExecution();
-#endif
 }
 
 static void recSetCacheReserve(uint reserveInMegs)
@@ -2427,7 +2394,7 @@ R5900cpu recCpu =
 	recStep,
 	recExecute,
 
-	recCheckExecutionState,
+	recSafeExitExecution,
 	recThrowException,
 	recThrowException,
 	recClear,

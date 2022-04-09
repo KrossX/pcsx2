@@ -1,5 +1,5 @@
 /*  PCSX2 - PS2 Emulator for PCs
- *  Copyright (C) 2002-2021 PCSX2 Dev Team
+ *  Copyright (C) 2002-2022 PCSX2 Dev Team
  *
  *  PCSX2 is free software: you can redistribute it and/or modify it under the terms
  *  of the GNU Lesser General Public License as published by the Free Software Found-
@@ -36,6 +36,7 @@
 #include "common/Console.h"
 #include "common/StringUtil.h"
 #include "pcsx2/Config.h"
+#include "pcsx2/Counters.h"
 #include "pcsx2/Host.h"
 #include "pcsx2/HostDisplay.h"
 #include "pcsx2/GS.h"
@@ -715,14 +716,20 @@ void GSgetStats(std::string& info)
 
 void GSgetTitleStats(std::string& info)
 {
+	const char* api_name = HostDisplay::RenderAPIToString(s_render_api);
+	const char* hw_sw_name = (GSConfig.Renderer == GSRendererType::Null) ? " Null" : (GSConfig.UseHardwareRenderer() ? " HW" : " SW");
+	const char* deinterlace_mode = theApp.m_gs_deinterlace[static_cast<int>(GSConfig.InterlaceMode)].name.c_str();
+
+#ifndef PCSX2_CORE
 	int iwidth, iheight;
 	GSgetInternalResolution(&iwidth, &iheight);
 
-	const char* api_name = HostDisplay::RenderAPIToString(s_render_api);
-	const char* hw_sw_name = (GSConfig.Renderer == GSRendererType::Null) ? " Null" : (GSConfig.UseHardwareRenderer() ? " HW" : " SW");
-	const char* interlace_mode = theApp.m_gs_interlace[static_cast<int>(GSConfig.InterlaceMode)].name.c_str();
-
-	info = format("%s%s | %s | %dx%d", api_name, hw_sw_name, interlace_mode,  iwidth, iheight);
+	info = StringUtil::StdStringFromFormat("%s%s | %s | %dx%d", api_name, hw_sw_name, deinterlace_mode,  iwidth, iheight);
+#else
+	const char* interlace_mode = ReportInterlaceMode();
+	const char* video_mode = ReportVideoMode();
+	info = StringUtil::StdStringFromFormat("%s%s | %s | %s | %s", api_name, hw_sw_name, video_mode, interlace_mode, deinterlace_mode);
+#endif
 }
 
 void GSUpdateConfig(const Pcsx2Config::GSOptions& new_config)
@@ -1202,14 +1209,14 @@ void GSApp::Init()
 	// The null renderer goes last, it has use for benchmarking purposes in a release build
 	m_gs_renderers.push_back(GSSetting(static_cast<u32>(GSRendererType::Null), "Null", ""));
 
-	m_gs_interlace.push_back(GSSetting(0, "None", ""));
-	m_gs_interlace.push_back(GSSetting(1, "Weave tff", "saw-tooth"));
-	m_gs_interlace.push_back(GSSetting(2, "Weave bff", "saw-tooth"));
-	m_gs_interlace.push_back(GSSetting(3, "Bob tff", "use blend if shaking"));
-	m_gs_interlace.push_back(GSSetting(4, "Bob bff", "use blend if shaking"));
-	m_gs_interlace.push_back(GSSetting(5, "Blend tff", "slight blur, 1/2 fps"));
-	m_gs_interlace.push_back(GSSetting(6, "Blend bff", "slight blur, 1/2 fps"));
-	m_gs_interlace.push_back(GSSetting(7, "Automatic", "Default"));
+	m_gs_deinterlace.push_back(GSSetting(0, "None", ""));
+	m_gs_deinterlace.push_back(GSSetting(1, "Weave tff", "saw-tooth"));
+	m_gs_deinterlace.push_back(GSSetting(2, "Weave bff", "saw-tooth"));
+	m_gs_deinterlace.push_back(GSSetting(3, "Bob tff", "use blend if shaking"));
+	m_gs_deinterlace.push_back(GSSetting(4, "Bob bff", "use blend if shaking"));
+	m_gs_deinterlace.push_back(GSSetting(5, "Blend tff", "slight blur, 1/2 fps"));
+	m_gs_deinterlace.push_back(GSSetting(6, "Blend bff", "slight blur, 1/2 fps"));
+	m_gs_deinterlace.push_back(GSSetting(7, "Automatic", "Default"));
 
 	m_gs_upscale_multiplier.push_back(GSSetting(1, "Native", "PS2"));
 	m_gs_upscale_multiplier.push_back(GSSetting(2, "2x Native", "~720p"));
@@ -1235,7 +1242,8 @@ void GSApp::Init()
 	m_gs_bifilter.push_back(GSSetting(static_cast<u32>(BiFiltering::Forced), "Bilinear", "Forced"));
 	m_gs_bifilter.push_back(GSSetting(static_cast<u32>(BiFiltering::PS2), "Bilinear", "PS2"));
 
-	m_gs_trifilter.push_back(GSSetting(static_cast<u32>(TriFiltering::Off), "None", "Default"));
+	m_gs_trifilter.push_back(GSSetting(static_cast<u32>(TriFiltering::Automatic), "Automatic", "Default"));
+	m_gs_trifilter.push_back(GSSetting(static_cast<u32>(TriFiltering::Off), "None", ""));
 	m_gs_trifilter.push_back(GSSetting(static_cast<u32>(TriFiltering::PS2), "Trilinear", ""));
 	m_gs_trifilter.push_back(GSSetting(static_cast<u32>(TriFiltering::Forced), "Trilinear", "Ultra/Slow"));
 
@@ -1331,7 +1339,7 @@ void GSApp::Init()
 	m_default_configuration["fxaa"]                                       = "0";
 	m_default_configuration["HWDisableReadbacks"]                         = "0";
 	m_default_configuration["IntegerScaling"]                             = "0";
-	m_default_configuration["interlace"]                                  = "7";
+	m_default_configuration["deinterlace"]                                = "7";
 	m_default_configuration["conservative_framebuffer"]                   = "1";
 	m_default_configuration["linear_present"]                             = "1";
 	m_default_configuration["LoadTextureReplacements"]                    = "0";
@@ -1369,8 +1377,6 @@ void GSApp::Init()
 	m_default_configuration["PrecacheTextureReplacements"]                = "0";
 	m_default_configuration["preload_frame_with_gs_data"]                 = "0";
 	m_default_configuration["Renderer"]                                   = std::to_string(static_cast<int>(GSRendererType::Auto));
-	m_default_configuration["resx"]                                       = "1024";
-	m_default_configuration["resy"]                                       = "1024";
 	m_default_configuration["save"]                                       = "0";
 	m_default_configuration["savef"]                                      = "0";
 	m_default_configuration["savel"]                                      = "5000";
@@ -1408,7 +1414,7 @@ void GSApp::Init()
 	m_default_configuration["UserHacks_TCOffsetX"]                        = "0";
 	m_default_configuration["UserHacks_TCOffsetY"]                        = "0";
 	m_default_configuration["UserHacks_TextureInsideRt"]                  = "0";
-	m_default_configuration["UserHacks_TriFilter"]                        = std::to_string(static_cast<s8>(TriFiltering::Off));
+	m_default_configuration["UserHacks_TriFilter"]                        = std::to_string(static_cast<s8>(TriFiltering::Automatic));
 	m_default_configuration["UserHacks_WildHack"]                         = "0";
 	m_default_configuration["wrap_gs_mem"]                                = "0";
 	m_default_configuration["vsync"]                                      = "0";
@@ -1621,7 +1627,7 @@ BEGIN_HOTKEY_LIST(g_gs_hotkeys){
 			 s_gs->PurgePool();
 		 });
 	 }},
-	{"CycleInterlaceMode", "Graphics", "Cycle Interlace Mode", [](bool pressed) {
+	{"CycleInterlaceMode", "Graphics", "Cycle Deinterlace Mode", [](bool pressed) {
 		 if (pressed)
 			 return;
 

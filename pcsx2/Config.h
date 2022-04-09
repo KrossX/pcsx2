@@ -146,8 +146,9 @@ enum class BiFiltering : u8
 	Forced_But_Sprite,
 };
 
-enum class TriFiltering : u8
+enum class TriFiltering : s8
 {
+	Automatic = -1,
 	Off,
 	PS2,
 	Forced,
@@ -393,6 +394,8 @@ struct Pcsx2Config
 		void LoadSave(SettingsWrapper& wrap);
 		void ApplySanityCheck();
 
+		bool CpusChanged(const CpuOptions& right) const;
+
 		bool operator==(const CpuOptions& right) const
 		{
 			return OpEqu(sseMXCSR) && OpEqu(sseVUMXCSR) && OpEqu(Recompiler);
@@ -523,7 +526,7 @@ struct Pcsx2Config
 		int UserHacks_RoundSprite{0};
 		int UserHacks_TCOffsetX{0};
 		int UserHacks_TCOffsetY{0};
-		TriFiltering UserHacks_TriFilter{TriFiltering::Off};
+		TriFiltering UserHacks_TriFilter{TriFiltering::Automatic};
 		int OverrideTextureBarriers{-1};
 		int OverrideGeometryShaders{-1};
 
@@ -929,6 +932,9 @@ struct Pcsx2Config
 		EnableWideScreenPatches : 1,
 #ifndef DISABLE_RECORDING
 		EnableRecordingTools : 1,
+#endif
+#ifdef PCSX2_CORE
+		EnableGameFixes : 1, // enables automatic game fixes
 #endif
 		// when enabled uses BOOT2 injection, skipping sony bios splashes
 		UseBOOT2Injection : 1,

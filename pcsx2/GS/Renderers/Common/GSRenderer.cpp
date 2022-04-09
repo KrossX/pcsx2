@@ -276,15 +276,7 @@ bool GSRenderer::Merge(int field)
 			{
 				const int field2 = scanmask ? 0 : 1 - ((static_cast<int>(GSConfig.InterlaceMode) - 1) & 1);
 				const int offset = tex[1] ? tex[1]->GetScale().y : tex[0]->GetScale().y;
-				// -1 = None
-				// 0 = Weave
-				// 1 = Bob
-				// 2 = Blend
-				int mode = scanmask ? 2 : std::clamp((static_cast<int>(GSConfig.InterlaceMode) - 1) >> 1, -1, 2);
-
-				// If we're on auto, prefer no interlacing (bob, kinda), unless there is an offset or scanmsk, then retain blend
-				if (GSConfig.InterlaceMode == GSInterlaceMode::Automatic && !(m_regs->SMODE2.FFMD) && !scanmask && !offset)
-					mode = -1;
+				int mode = scanmask ? 2 : (static_cast<int>(GSConfig.InterlaceMode) - 1) >> 1;
 
 				g_gs_device->Interlace(ds, field ^ field2, mode, offset);
 			}
@@ -651,7 +643,7 @@ void GSRenderer::KeyEvent(const HostKeyEvent& e)
 			case VK_F5:
 				GSConfig.InterlaceMode = static_cast<GSInterlaceMode>((static_cast<int>(GSConfig.InterlaceMode) + static_cast<int>(GSInterlaceMode::Count) + step) % static_cast<int>(GSInterlaceMode::Count));
 				theApp.SetConfig("interlace", static_cast<int>(GSConfig.InterlaceMode));
-				printf("GS: Set deinterlace mode to %d (%s).\n", static_cast<int>(GSConfig.InterlaceMode), theApp.m_gs_interlace.at(static_cast<int>(GSConfig.InterlaceMode)).name.c_str());
+				printf("GS: Set deinterlace mode to %d (%s).\n", static_cast<int>(GSConfig.InterlaceMode), theApp.m_gs_deinterlace.at(static_cast<int>(GSConfig.InterlaceMode)).name.c_str());
 				return;
 			case VK_DELETE:
 				GSConfig.AA1 = !GSConfig.AA1;

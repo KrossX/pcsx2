@@ -224,6 +224,14 @@ void Pcsx2Config::RecompilerOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(PreBlockCheckIOP);
 }
 
+bool Pcsx2Config::CpuOptions::CpusChanged(const CpuOptions& right) const
+{
+	return (Recompiler.EnableEE != right.Recompiler.EnableEE ||
+			Recompiler.EnableIOP != right.Recompiler.EnableIOP ||
+			Recompiler.EnableVU0 != right.Recompiler.EnableVU0 ||
+			Recompiler.EnableVU1 != right.Recompiler.EnableVU1);
+}
+
 Pcsx2Config::CpuOptions::CpuOptions()
 {
 	sseMXCSR.bitmask = DEFAULT_sseMXCSR;
@@ -544,12 +552,13 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingBoolEx(LoadTextureReplacementsAsync, "LoadTextureReplacementsAsync");
 	GSSettingBoolEx(PrecacheTextureReplacements, "PrecacheTextureReplacements");
 
-	GSSettingIntEnumEx(InterlaceMode, "interlace");
+	GSSettingIntEnumEx(InterlaceMode, "deinterlace");
 
 	GSSettingFloat(OsdScale);
 
 	GSSettingIntEnumEx(Renderer, "Renderer");
 	GSSettingIntEx(UpscaleMultiplier, "upscale_multiplier");
+	UpscaleMultiplier = std::clamp(UpscaleMultiplier, 1u, 8u);
 
 	GSSettingIntEnumEx(HWMipmap, "mipmap_hw");
 	GSSettingIntEnumEx(AccurateBlendingUnit, "accurate_blending_unit");
@@ -621,7 +630,7 @@ void Pcsx2Config::GSOptions::MaskUserHacks()
 
 	// in wx, we put trilinear filtering behind user hacks, but not in qt.
 #ifndef PCSX2_CORE
-	UserHacks_TriFilter = TriFiltering::Off;
+	UserHacks_TriFilter = TriFiltering::Automatic;
 #endif
 }
 
@@ -1008,6 +1017,9 @@ Pcsx2Config::Pcsx2Config()
 	McdEnableEjection = true;
 	McdFolderAutoManage = true;
 	EnablePatches = true;
+#ifdef PCSX2_CORE
+	EnableGameFixes = true;
+#endif
 	BackupSavestate = true;
 
 #ifdef __WXMSW__
@@ -1040,6 +1052,9 @@ void Pcsx2Config::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(EnableWideScreenPatches);
 #ifndef DISABLE_RECORDING
 	SettingsWrapBitBool(EnableRecordingTools);
+#endif
+#ifdef PCSX2_CORE
+	SettingsWrapBitBool(EnableGameFixes);
 #endif
 	SettingsWrapBitBool(ConsoleToStdio);
 	SettingsWrapBitBool(HostFs);

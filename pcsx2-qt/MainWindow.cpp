@@ -29,6 +29,7 @@
 #include "pcsx2/Frontend/GameList.h"
 #include "pcsx2/GSDumpReplayer.h"
 #include "pcsx2/HostDisplay.h"
+#include "pcsx2/PerformanceMetrics.h"
 
 #include "AboutDialog.h"
 #include "DisplayWidget.h"
@@ -45,11 +46,12 @@
 #include "svnrev.h"
 
 static constexpr char DISC_IMAGE_FILTER[] =
-	QT_TRANSLATE_NOOP("MainWindow", "All File Types (*.bin *.iso *.cue *.chd *.cso *.elf *.irx *.m3u *.gs *.gs.xz);;"
+	QT_TRANSLATE_NOOP("MainWindow", "All File Types (*.bin *.iso *.cue *.chd *.cso *.gz *.elf *.irx *.m3u *.gs *.gs.xz);;"
 									"Single-Track Raw Images (*.bin *.iso);;"
 									"Cue Sheets (*.cue);;"
 									"MAME CHD Images (*.chd);;"
 									"CSO Images (*.cso);;"
+									"GZ Images (*.gz);;"
 									"ELF Executables (*.elf);;"
 									"IRX Executables (*.irx);;"
 									"Playlists (*.m3u);;"
@@ -112,6 +114,16 @@ void MainWindow::setupAdditionalUi()
 	m_status_progress_widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 	m_status_progress_widget->setFixedSize(140, 16);
 	m_status_progress_widget->hide();
+
+	m_status_gs_widget = new QLabel(m_ui.statusBar);
+	m_status_gs_widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+	m_status_gs_widget->setFixedHeight(16);
+	m_status_gs_widget->hide();
+
+	m_status_fps_widget = new QLabel(m_ui.statusBar);
+	m_status_fps_widget->setAlignment(Qt::AlignRight);
+	m_status_fps_widget->setFixedHeight(16);
+	m_status_fps_widget->hide();
 
 	for (u32 scale = 0; scale <= 10; scale++)
 	{
@@ -180,6 +192,8 @@ void MainWindow::connectSignals()
 	});
 	connect(m_ui.actionGridViewRefreshCovers, &QAction::triggered, m_game_list_widget, &GameListWidget::refreshGridCovers);
 
+	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionViewStatusBarVerbose, "UI", "VerboseStatusBar", false);
+
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionEnableSystemConsole, "Logging", "EnableSystemConsole", false);
 	connect(m_ui.actionEnableSystemConsole, &QAction::triggered, this, &MainWindow::onLoggingOptionChanged);
 #ifndef PCSX2_DEVBUILD
@@ -216,6 +230,7 @@ void MainWindow::connectVMThreadSignals(EmuThread* thread)
 	connect(thread, &EmuThread::onVMResumed, this, &MainWindow::onVMResumed);
 	connect(thread, &EmuThread::onVMStopped, this, &MainWindow::onVMStopped);
 	connect(thread, &EmuThread::onGameChanged, this, &MainWindow::onGameChanged);
+	connect(thread, &EmuThread::onPerformanceMetricsUpdated, this, &MainWindow::onPerformanceMetricsUpdated);
 
 	connect(m_ui.actionReset, &QAction::triggered, thread, &EmuThread::resetVM);
 	connect(m_ui.actionPause, &QAction::toggled, thread, &EmuThread::setVMPaused);
@@ -565,6 +580,27 @@ void MainWindow::updateEmulationActions(bool starting, bool running)
 	m_game_list_widget->setDisabled(starting && !running);
 }
 
+void MainWindow::updateStatusBarWidgetVisibility()
+{
+	auto Update = [this](QWidget* widget, bool visible, int stretch)
+	{
+		if (widget->isVisible())
+		{
+			m_ui.statusBar->removeWidget(widget);
+			widget->hide();
+		}
+
+		if (visible)
+		{
+			m_ui.statusBar->addPermanentWidget(widget, stretch);
+			widget->show();
+		}
+	};
+
+	Update(m_status_gs_widget, m_vm_valid && !m_vm_paused, 1);
+	Update(m_status_fps_widget, m_vm_valid, 0);
+}
+
 void MainWindow::updateWindowTitle()
 {
 	QString title;
@@ -659,6 +695,11 @@ void MainWindow::invalidateSaveStateCache()
 void MainWindow::reportError(const QString& title, const QString& message)
 {
 	QMessageBox::critical(this, title, message);
+}
+
+void MainWindow::runOnUIThread(const std::function<void()>& func)
+{
+	func();
 }
 
 bool MainWindow::requestShutdown(bool allow_confirm /* = true */, bool allow_save_to_state /* = true */, bool block_until_done /* = false */)
@@ -994,6 +1035,7 @@ void MainWindow::onVMStarted()
 	m_vm_valid = true;
 	updateEmulationActions(true, true);
 	updateWindowTitle();
+	updateStatusBarWidgetVisibility();
 }
 
 void MainWindow::onVMPaused()
@@ -1006,6 +1048,8 @@ void MainWindow::onVMPaused()
 
 	m_vm_paused = true;
 	updateWindowTitle();
+	updateStatusBarWidgetVisibility();
+	m_status_fps_widget->setText(tr("Paused"));
 }
 
 void MainWindow::onVMResumed()
@@ -1018,14 +1062,18 @@ void MainWindow::onVMResumed()
 
 	m_vm_paused = false;
 	updateWindowTitle();
+	updateStatusBarWidgetVisibility();
+	m_status_fps_widget->setText(m_last_fps_status);
 }
 
 void MainWindow::onVMStopped()
 {
 	m_vm_valid = false;
 	m_vm_paused = false;
+	m_last_fps_status = QString();
 	updateEmulationActions(false, false);
 	updateWindowTitle();
+	updateStatusBarWidgetVisibility();
 	switchToGameListView();
 }
 
@@ -1037,6 +1085,13 @@ void MainWindow::onGameChanged(const QString& path, const QString& serial, const
 	m_current_game_crc = crc;
 	updateWindowTitle();
 	updateSaveStateMenus(path, serial, crc);
+}
+
+void MainWindow::onPerformanceMetricsUpdated(const QString& fps_stat, const QString& gs_stat)
+{
+	m_last_fps_status = fps_stat;
+	m_status_fps_widget->setText(m_last_fps_status);
+	m_status_gs_widget->setText(gs_stat);
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)

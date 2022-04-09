@@ -52,6 +52,7 @@ public:
 
 	void startBackgroundControllerPollTimer();
 	void stopBackgroundControllerPollTimer();
+	void updatePerformanceMetrics(bool force);
 
 public Q_SLOTS:
 	void startVM(std::shared_ptr<VMBootParameters> boot_params);
@@ -75,6 +76,7 @@ public Q_SLOTS:
 	void requestDisplaySize(float scale);
 	void enumerateInputDevices();
 	void enumerateVibrationMotors();
+	void runOnCPUThread(const std::function<void()>& func);
 
 Q_SIGNALS:
 	DisplayWidget* onCreateDisplayRequested(bool fullscreen, bool render_to_main);
@@ -99,6 +101,9 @@ Q_SIGNALS:
 
 	/// Provided by the host; called when the running executable changes.
 	void onGameChanged(const QString& path, const QString& serial, const QString& name, quint32 crc);
+
+	/// Called when performance metrics are changed, approx. once a second.
+	void onPerformanceMetricsUpdated(const QString& fps_stats, const QString& gs_stats);
 
 	void onInputDevicesEnumerated(const QList<QPair<QString, QString>>& devices);
 	void onInputDeviceConnected(const QString& identifier, const QString& device_name);
@@ -129,6 +134,7 @@ private:
 
 	void createBackgroundControllerPollTimer();
 	void destroyBackgroundControllerPollTimer();
+	void loadOurSettings();
 
 private Q_SLOTS:
 	void stopInThread();
@@ -148,8 +154,15 @@ private:
 
 	std::atomic_bool m_shutdown_flag{false};
 
+	bool m_verbose_status = false;
 	bool m_is_rendering_to_main = false;
 	bool m_is_fullscreen = false;
+
+	float m_last_speed = 0.0f;
+	float m_last_game_fps = 0.0f;
+	float m_last_video_fps = 0.0f;
+	int m_last_internal_width = 0;
+	int m_last_internal_height = 0;
 };
 
 /// <summary>

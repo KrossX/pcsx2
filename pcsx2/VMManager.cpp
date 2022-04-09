@@ -96,6 +96,7 @@ static std::unique_ptr<INISettingsInterface> s_game_settings_interface;
 static u64 s_emu_thread_affinity;
 
 static std::atomic<VMState> s_state{VMState::Shutdown};
+static std::atomic_bool s_cpu_implementation_changed{false};
 
 static std::mutex s_info_mutex;
 static std::string s_disc_path;
@@ -107,6 +108,7 @@ static u32 s_active_game_fixes = 0;
 static std::vector<u8> s_widescreen_cheats_data;
 static bool s_widescreen_cheats_loaded = false;
 static s32 s_current_save_slot = 1;
+static u32 s_frame_advance_count = 0;
 static u32 s_mxcsr_saved;
 
 VMState VMManager::GetState()
@@ -248,72 +250,7 @@ void VMManager::ApplyGameFixes()
 	if (!game)
 		return;
 
-	if (game->eeRoundMode != GameDatabaseSchema::RoundMode::Undefined)
-	{
-		SSE_RoundMode eeRM = (SSE_RoundMode)enum_cast(game->eeRoundMode);
-		if (EnumIsValid(eeRM))
-		{
-			PatchesCon->WriteLn("(GameDB) Changing EE/FPU roundmode to %d [%s]", eeRM, EnumToString(eeRM));
-			EmuConfig.Cpu.sseMXCSR.SetRoundMode(eeRM);
-			s_active_game_fixes++;
-		}
-	}
-
-	if (game->vuRoundMode != GameDatabaseSchema::RoundMode::Undefined)
-	{
-		SSE_RoundMode vuRM = (SSE_RoundMode)enum_cast(game->vuRoundMode);
-		if (EnumIsValid(vuRM))
-		{
-			PatchesCon->WriteLn("(GameDB) Changing VU0/VU1 roundmode to %d [%s]", vuRM, EnumToString(vuRM));
-			EmuConfig.Cpu.sseVUMXCSR.SetRoundMode(vuRM);
-			s_active_game_fixes++;
-		}
-	}
-
-	if (game->eeClampMode != GameDatabaseSchema::ClampMode::Undefined)
-	{
-		int clampMode = enum_cast(game->eeClampMode);
-		PatchesCon->WriteLn("(GameDB) Changing EE/FPU clamp mode [mode=%d]", clampMode);
-		EmuConfig.Cpu.Recompiler.fpuOverflow = (clampMode >= 1);
-		EmuConfig.Cpu.Recompiler.fpuExtraOverflow = (clampMode >= 2);
-		EmuConfig.Cpu.Recompiler.fpuFullMode = (clampMode >= 3);
-		s_active_game_fixes++;
-	}
-
-	if (game->vuClampMode != GameDatabaseSchema::ClampMode::Undefined)
-	{
-		int clampMode = enum_cast(game->vuClampMode);
-		PatchesCon->WriteLn("(GameDB) Changing VU0/VU1 clamp mode [mode=%d]", clampMode);
-		EmuConfig.Cpu.Recompiler.vuOverflow = (clampMode >= 1);
-		EmuConfig.Cpu.Recompiler.vuExtraOverflow = (clampMode >= 2);
-		EmuConfig.Cpu.Recompiler.vuSignOverflow = (clampMode >= 3);
-		s_active_game_fixes++;
-	}
-
-	// TODO - config - this could be simplified with maps instead of bitfields and enums
-	for (const auto& it : game->speedHacks)
-	{
-		// Legacy note - speedhacks are setup in the GameDB as integer values, but
-		// are effectively booleans like the gamefixes
-		const bool mode = it.second != 0;
-		EmuConfig.Speedhacks.Set(it.first, mode);
-		PatchesCon->WriteLn("(GameDB) Setting Speedhack '%s' to [mode=%d]", EnumToString(it.first), mode);
-		s_active_game_fixes++;
-	}
-
-	// TODO - config - this could be simplified with maps instead of bitfields and enums
-	for (const GamefixId id : game->gameFixes)
-	{
-		// if the fix is present, it is said to be enabled
-		EmuConfig.Gamefixes.Set(id, true);
-		PatchesCon->WriteLn("(GameDB) Enabled Gamefix: %s", EnumToString(id));
-		s_active_game_fixes++;
-
-		// The LUT is only used for 1 game so we allocate it only when the gamefix is enabled (save 4MB)
-		if (id == Fix_GoemonTlbMiss && true)
-			vtlb_Alloc_Ppmap();
-	}
-
+	s_active_game_fixes += game->applyGameFixes(EmuConfig, EmuConfig.EnableGameFixes);
 	s_active_game_fixes += game->applyGSHardwareFixes(EmuConfig.GS);
 }
 
@@ -757,6 +694,8 @@ bool VMManager::Initialize(const VMBootParameters& boot_params)
 	s_mxcsr_saved = static_cast<u32>(a64_getfpcr());
 #endif
 
+	s_cpu_implementation_changed.store(false);
+	s_cpu_provider_pack->ApplyConfig();
 	SetCPUState(EmuConfig.Cpu.sseMXCSR, EmuConfig.Cpu.sseVUMXCSR);
 	SysClearExecutionCache();
 	memBindConditionalHandlers();
@@ -994,6 +933,15 @@ void VMManager::SetLimiterMode(LimiterModeType type)
 	GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
 }
 
+void VMManager::FrameAdvance(u32 num_frames /*= 1*/)
+{
+	if (!HasValidVM())
+		return;
+
+	s_frame_advance_count = num_frames;
+	SetState(VMState::Running);
+}
+
 bool VMManager::ChangeDisc(std::string path)
 {
 	std::string old_path(CDVDsys_GetFile(CDVD_SourceType::Iso));
@@ -1039,6 +987,15 @@ bool VMManager::IsGSDumpFileName(const std::string& path)
 
 void VMManager::Execute()
 {
+	// Check for interpreter<->recompiler switches.
+	if (s_cpu_implementation_changed.exchange(false))
+	{
+		// We need to switch the cpus out, and reset the new ones if so.
+		s_cpu_provider_pack->ApplyConfig();
+		SysClearExecutionCache();
+	}
+
+	// Execute until we're asked to stop.
 	Cpu->Execute();
 }
 
@@ -1058,7 +1015,7 @@ const std::string& VMManager::Internal::GetElfOverride()
 
 bool VMManager::Internal::IsExecutionInterrupted()
 {
-	return s_state.load() != VMState::Running;
+	return s_state.load() != VMState::Running || s_cpu_implementation_changed.load();
 }
 
 void VMManager::Internal::GameStartingOnCPUThread()
@@ -1080,6 +1037,18 @@ void VMManager::Internal::VSyncOnCPUThread()
 	ApplyLoadedPatches(PPT_CONTINUOUSLY);
 	ApplyLoadedPatches(PPT_COMBINED_0_1);
 
+	// Frame advance must be done *before* pumping messages, because otherwise
+	// we'll immediately reduce the counter we just set.
+	if (s_frame_advance_count > 0)
+	{
+		s_frame_advance_count--;
+		if (s_frame_advance_count == 0)
+		{
+			// auto pause at the end of frame advance
+			SetState(VMState::Paused);
+		}
+	}
+
 	Host::PumpMessagesOnCPUThread();
 	InputManager::PollSources();
 }
@@ -1098,6 +1067,15 @@ void VMManager::CheckForCPUConfigChanges(const Pcsx2Config& old_config)
 	SetCPUState(EmuConfig.Cpu.sseMXCSR, EmuConfig.Cpu.sseVUMXCSR);
 	SysClearExecutionCache();
 	memBindConditionalHandlers();
+
+	// did we toggle recompilers?
+	if (EmuConfig.Cpu.CpusChanged(old_config.Cpu))
+	{
+		// This has to be done asynchronously, since we're still executing the
+		// cpu when this function is called. Break the execution as soon as
+		// possible and reset next time we're called.
+		s_cpu_implementation_changed.store(true);
+	}
 }
 
 void VMManager::CheckForGSConfigChanges(const Pcsx2Config& old_config)
@@ -1352,6 +1330,10 @@ DEFINE_HOTKEY("DecreaseSpeed", "System", "Decrease Target Speed", [](bool presse
 DEFINE_HOTKEY("ResetVM", "System", "Reset Virtual Machine", [](bool pressed) {
 	if (!pressed && VMManager::HasValidVM())
 		VMManager::Reset();
+})
+DEFINE_HOTKEY("FrameAdvance", "System", "Frame Advance", [](bool pressed) {
+	if (!pressed)
+		VMManager::FrameAdvance(1);
 })
 
 DEFINE_HOTKEY("PreviousSaveStateSlot", "Save States", "Select Previous Save Slot", [](bool pressed) {

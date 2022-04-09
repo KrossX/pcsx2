@@ -81,6 +81,7 @@ namespace GameDatabaseSchema
 		HalfPixelOffset,
 		RoundSprite,
 		TexturePreloading,
+		Deinterlace,
 
 		Count
 	};
@@ -106,6 +107,9 @@ namespace GameDatabaseSchema
 		std::string memcardFiltersAsString() const;
 		const Patch* findPatch(const std::string_view& crc) const;
 		const char* compatAsString() const;
+
+		/// Applies Core game fixes to an existing config. Returns the number of applied fixes.
+		u32 applyGameFixes(Pcsx2Config& config, bool applyAuto) const;
 
 		/// Applies GS hardware fixes to an existing config. Returns the number of applied fixes.
 		u32 applyGSHardwareFixes(Pcsx2Config::GSOptions& config) const;

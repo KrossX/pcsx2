@@ -18,6 +18,7 @@
 #include "GameDatabase.h"
 #include "Host.h"
 #include "Patch.h"
+#include "vtlb.h"
 
 #include "common/FileSystem.h"
 #include "common/Path.h"
@@ -285,6 +286,7 @@ static const char* s_gs_hw_fix_names[] = {
 	"halfPixelOffset",
 	"roundSprite",
 	"texturePreloading",
+	"deinterlace",
 };
 static_assert(std::size(s_gs_hw_fix_names) == static_cast<u32>(GameDatabaseSchema::GSHWFixId::Count), "HW fix name lookup is correct size");
 
@@ -308,6 +310,7 @@ bool GameDatabaseSchema::isUserHackHWFix(GSHWFixId id)
 {
 	switch (id)
 	{
+		case GSHWFixId::Deinterlace:
 		case GSHWFixId::Mipmap:
 		case GSHWFixId::TexturePreloading:
 		case GSHWFixId::ConservativeFramebuffer:
@@ -323,6 +326,113 @@ bool GameDatabaseSchema::isUserHackHWFix(GSHWFixId id)
 		default:
 			return true;
 	}
+}
+
+u32 GameDatabaseSchema::GameEntry::applyGameFixes(Pcsx2Config& config, bool applyAuto) const
+{
+	// Only apply core game fixes if the user has enabled them.
+	if (!applyAuto)
+		Console.Warning("[GameDB] Game Fixes are disabled");
+
+	u32 num_applied_fixes = 0;
+
+	if (eeRoundMode != GameDatabaseSchema::RoundMode::Undefined)
+	{
+		const SSE_RoundMode eeRM = (SSE_RoundMode)enum_cast(eeRoundMode);
+		if (EnumIsValid(eeRM))
+		{
+			if (applyAuto)
+			{
+				PatchesCon->WriteLn("(GameDB) Changing EE/FPU roundmode to %d [%s]", eeRM, EnumToString(eeRM));
+				config.Cpu.sseMXCSR.SetRoundMode(eeRM);
+				num_applied_fixes++;
+			}
+			else
+				PatchesCon->Warning("[GameDB] Skipping changing EE/FPU roundmode to %d [%s]", eeRM, EnumToString(eeRM));
+		}
+	}
+
+	if (vuRoundMode != GameDatabaseSchema::RoundMode::Undefined)
+	{
+		const SSE_RoundMode vuRM = (SSE_RoundMode)enum_cast(vuRoundMode);
+		if (EnumIsValid(vuRM))
+		{
+			if (applyAuto)
+			{
+				PatchesCon->WriteLn("(GameDB) Changing VU0/VU1 roundmode to %d [%s]", vuRM, EnumToString(vuRM));
+				config.Cpu.sseVUMXCSR.SetRoundMode(vuRM);
+				num_applied_fixes++;
+			}
+			else
+				PatchesCon->Warning("[GameDB] Skipping changing VU0/VU1 roundmode to %d [%s]", vuRM, EnumToString(vuRM));
+		}
+	}
+
+	if (eeClampMode != GameDatabaseSchema::ClampMode::Undefined)
+	{
+		const int clampMode = enum_cast(eeClampMode);
+		if (applyAuto)
+		{
+			PatchesCon->WriteLn("(GameDB) Changing EE/FPU clamp mode [mode=%d]", clampMode);
+			config.Cpu.Recompiler.fpuOverflow = (clampMode >= 1);
+			config.Cpu.Recompiler.fpuExtraOverflow = (clampMode >= 2);
+			config.Cpu.Recompiler.fpuFullMode = (clampMode >= 3);
+			num_applied_fixes++;
+		}
+		else
+			PatchesCon->Warning("[GameDB] Skipping changing EE/FPU clamp mode [mode=%d]", clampMode);
+	}
+
+	if (vuClampMode != GameDatabaseSchema::ClampMode::Undefined)
+	{
+		const int clampMode = enum_cast(vuClampMode);
+		if (applyAuto)
+		{
+			PatchesCon->WriteLn("(GameDB) Changing VU0/VU1 clamp mode [mode=%d]", clampMode);
+			config.Cpu.Recompiler.vuOverflow = (clampMode >= 1);
+			config.Cpu.Recompiler.vuExtraOverflow = (clampMode >= 2);
+			config.Cpu.Recompiler.vuSignOverflow = (clampMode >= 3);
+			num_applied_fixes++;
+		}
+		else
+			PatchesCon->Warning("[GameDB] Skipping changing VU0/VU1 clamp mode [mode=%d]", clampMode);
+	}
+
+	// TODO - config - this could be simplified with maps instead of bitfields and enums
+	for (const auto& it : speedHacks)
+	{
+		const bool mode = it.second != 0;
+		if (!applyAuto)
+		{
+			PatchesCon->Warning("[GameDB] Skipping setting Speedhack '%s' to [mode=%d]", EnumToString(it.first), mode);
+			continue;
+		}
+		// Legacy note - speedhacks are setup in the GameDB as integer values, but
+		// are effectively booleans like the gamefixes
+		config.Speedhacks.Set(it.first, mode);
+		PatchesCon->WriteLn("(GameDB) Setting Speedhack '%s' to [mode=%d]", EnumToString(it.first), mode);
+		num_applied_fixes++;
+	}
+
+	// TODO - config - this could be simplified with maps instead of bitfields and enums
+	for (const GamefixId id : gameFixes)
+	{
+		if (!applyAuto)
+		{
+			PatchesCon->Warning("[GameDB] Skipping Gamefix: %s", EnumToString(id));
+			continue;
+		}
+		// if the fix is present, it is said to be enabled
+		config.Gamefixes.Set(id, true);
+		PatchesCon->WriteLn("(GameDB) Enabled Gamefix: %s", EnumToString(id));
+		num_applied_fixes++;
+
+		// The LUT is only used for 1 game so we allocate it only when the gamefix is enabled (save 4MB)
+		if (id == Fix_GoemonTlbMiss && true)
+			vtlb_Alloc_Ppmap();
+	}
+
+	return num_applied_fixes;
 }
 
 u32 GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions& config) const
@@ -406,7 +516,12 @@ u32 GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions& 
 			case GSHWFixId::TrilinearFiltering:
 			{
 				if (value >= 0 && value <= static_cast<int>(TriFiltering::Forced))
-					config.UserHacks_TriFilter = static_cast<TriFiltering>(value);
+				{
+					if (config.UserHacks_TriFilter == TriFiltering::Automatic)
+						config.UserHacks_TriFilter = static_cast<TriFiltering>(value);
+					else if (config.UserHacks_TriFilter == TriFiltering::Off)
+						Console.Warning("[GameDB] Game requires trilinear filtering but it has been force disabled.");
+				}
 			}
 			break;
 
@@ -435,6 +550,16 @@ u32 GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions& 
 				if (value >= 0 && value <= static_cast<int>(TexturePreloadingLevel::Full))
 					config.TexturePreloading = std::min(config.TexturePreloading, static_cast<TexturePreloadingLevel>(value));
 			}
+			break;
+
+			case GSHWFixId::Deinterlace:
+				if (value >= 0 && value <= static_cast<int>(GSInterlaceMode::Automatic))
+				{
+					if (config.InterlaceMode == GSInterlaceMode::Automatic)
+						config.InterlaceMode = static_cast<GSInterlaceMode>(value);
+					else
+						Console.Warning("[GameDB] Game requires different deinterlace mode but it has been overridden by user setting.");
+				}
 			break;
 
 			default:

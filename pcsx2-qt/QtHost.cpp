@@ -69,10 +69,12 @@ static std::unique_ptr<INISettingsInterface> s_base_settings_interface;
 
 bool QtHost::Initialize()
 {
+	qRegisterMetaType<std::optional<bool>>();
+	qRegisterMetaType<std::function<void()>>();
 	qRegisterMetaType<std::shared_ptr<VMBootParameters>>();
 	qRegisterMetaType<GSRendererType>();
-	qRegisterMetaType<const GameList::Entry*>();
 	qRegisterMetaType<InputBindingKey>();
+	qRegisterMetaType<const GameList::Entry*>();
 
 	InitializeWxRubbish();
 	if (!InitializeConfig())
@@ -296,6 +298,14 @@ void QtHost::QueueSettingsSave()
 	s_settings_save_timer->connect(s_settings_save_timer.get(), &QTimer::timeout, SaveSettings);
 	s_settings_save_timer->setSingleShot(true);
 	s_settings_save_timer->start(SETTINGS_SAVE_DELAY);
+}
+
+void QtHost::RunOnUIThread(const std::function<void()>& func, bool block /*= false*/)
+{
+	// main window always exists, so it's fine to attach it to that.
+	QMetaObject::invokeMethod(g_main_window, "runOnUIThread",
+		block ? Qt::BlockingQueuedConnection : Qt::QueuedConnection,
+		Q_ARG(const std::function<void()>&, func));
 }
 
 std::optional<std::vector<u8>> Host::ReadResourceFile(const char* filename)
