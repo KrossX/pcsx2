@@ -32,7 +32,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <PreprocessorDefinitions>%(PreprocessorDefinitions);_7ZIP_ST</PreprocessorDefinitions>
+      <PreprocessorDefinitions>%(PreprocessorDefinitions);_7ZIP_ST;DRFLAC_NO_SSE41</PreprocessorDefinitions>
       <WarningLevel>TurnOffAllWarnings</WarningLevel>
       <AdditionalIncludeDirectories>$(ProjectDir)libchdr\include;$(ProjectDir)\libchdr\src;$(SolutionDir)3rdparty\lzma\include;$(SolutionDir)3rdparty\zlib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
