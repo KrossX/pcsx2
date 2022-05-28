@@ -147,10 +147,10 @@ bool VMManager::PerformEarlyHardwareChecks(const char** error)
 	x86capabilities temp_x86_caps;
 	temp_x86_caps.Identify();
 
-	if (!temp_x86_caps.hasStreamingSIMD4Extensions)
+	if (!temp_x86_caps.hasStreamingSIMD2Extensions)
 	{
-		*error = "PCSX2 requires the Streaming SIMD 4 Extensions instruction set, which your CPU does not support.\n\n"
-				 "SSE4 is now a minimum requirement for PCSX2. You should either upgrade your CPU, or use an older build such as 1.6.0.\n\n" COMMON_DOWNLOAD_MESSAGE;
+		*error = "PCSX2 requires the Streaming SIMD 2 Extensions instruction set, which your CPU does not support.\n\n"
+				 "SSE2 is now a minimum requirement for PCSX2. You should either upgrade your CPU, or use an older build such as 1.6.0.\n\n" COMMON_DOWNLOAD_MESSAGE;
 		return false;
 	}
 
