@@ -720,8 +720,8 @@ void PadDualshock2::Set(u32 index, float value)
 		float dz =this->triggerDeadzone;
 		float adz = this->triggerAntideadzone;
 
-		if (dz > 0.0f && svalue < dz)
-			svalue = 0;
+		if (dz > 0.0f)
+			svalue = svalue < dz ? 0.0f : (svalue - dz) / (1.0f - dz);
 
 		if (adz > 0.0f && svalue > 0.0f)
 			svalue = adz + svalue * (1.0f - adz);
