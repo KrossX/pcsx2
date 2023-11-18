@@ -139,7 +139,14 @@ s32 ReverbDownsample(V_Core& core, bool right)
 #if _M_SSE >= 0x501
 	return ReverbDownsample_avx(core, right);
 #else
-	return ReverbDownsample_sse(core, right);
+	if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+	{
+		return ReverbDownsample_reference(core, right);
+	}
+	else
+	{
+		return ReverbDownsample_sse(core, right);
+	}
 #endif
 }
 
@@ -250,7 +257,14 @@ StereoOut32 ReverbUpsample(V_Core& core)
 #if _M_SSE >= 0x501
 	return ReverbUpsample_avx(core);
 #else
-	return ReverbUpsample_sse(core);
+	if (x86caps.SIMDLevel < SIMD_Level_SSSE3)
+	{
+		return ReverbUpsample_reference(core);
+	}
+	else
+	{
+		return ReverbUpsample_sse(core);
+	}
 #endif
 }
 
