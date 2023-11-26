@@ -180,7 +180,7 @@ private:
 	}
 	void setNumCores()
 	{
-		if (!has(tINTEL) && !has(tAMD)) return;
+		if (!has(tINTEL)) return;
 
 		uint32_t data[4] = {};
 		getCpuidEx(0x0, 0, data);
@@ -216,7 +216,7 @@ private:
 	}
 	void setCacheHierarchy()
 	{
-		if (!has(tINTEL) && !has(tAMD)) return;
+		if (!has(tINTEL)) return;
 
 		// https://github.com/amd/ZenDNN/blob/a08bf9a9efc160a69147cdecfb61cc85cc0d4928/src/cpu/x64/xbyak/xbyak_util.h#L236-L288
 		if (has(tAMD)) {
