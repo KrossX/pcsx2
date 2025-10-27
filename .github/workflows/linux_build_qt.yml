@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
            fetch-depth: 0
 
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload artifact
         if: inputs.buildAppImage == true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.artifact-metadata.outputs.artifact-name }}
           path: ci-artifacts
