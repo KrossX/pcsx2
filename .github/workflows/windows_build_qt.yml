@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Configure MSBuild Clang Version
         if: inputs.configuration != 'CMake'
@@ -115,7 +115,7 @@ jobs:
 
       - name: Cache Dependencies
         id: cache-deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: deps
           key: ${{ inputs.os }} ${{ inputs.platform }} deps ${{ hashFiles('.github/workflows/scripts/windows/build-dependencies.bat', '.github/workflows/scripts/common/*.patch') }}
@@ -154,7 +154,7 @@ jobs:
           cmake --build build --config Release --target unittests
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.artifact-metadata.outputs.artifact-name }}
           path: |
@@ -168,7 +168,7 @@ jobs:
             !./bin/**/*.lib
 
       - name: Install the Breakpad Symbol Generator
-        uses: baptiste0928/cargo-install@91c5da15570085bcde6f4d7aed98cb82d6769fd3
+        uses: baptiste0928/cargo-install@b687c656bda5733207e629b50a22bf68974a0305
         with:
           crate: dump_syms
 
@@ -186,7 +186,7 @@ jobs:
           }
 
       - name: Upload artifact - with symbols
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.artifact-metadata.outputs.artifact-name }}-symbols
           path: |
